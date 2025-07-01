@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 class audio_file_manager
@@ -13,6 +14,8 @@ class audio_file_manager
         kStopped
     };
 
+    static std::unique_ptr<audio_file_manager> create_audio_file_manager();
+
     audio_file_manager() = default;
     virtual ~audio_file_manager() = default;
 
@@ -25,8 +28,8 @@ class audio_file_manager
     virtual void process_block(float* out_buffer, size_t frame_size, size_t num_channels, float gain = 1.f) = 0;
 
     virtual AudioPlayerState get_state() const = 0;
-    virtual void play() = 0;
+    virtual void play(bool loop) = 0;
     virtual void pause() = 0;
     virtual void resume() = 0;
-    virtual void stop() = 0;
+    virtual void stop(bool blocking = false) = 0;
 };

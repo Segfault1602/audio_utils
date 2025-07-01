@@ -33,18 +33,41 @@ set(INSTALL_PKGCONFIG_MODULE OFF CACHE BOOL "Disable pkgconfig module!" FORCE)
 
 FetchContent_MakeAvailable(libsndfile)
 
-FetchContent_Declare(
-    pffft
-    GIT_REPOSITORY https://bitbucket.org/jpommier/pffft.git
-)
+# FetchContent_Declare(
+#     pffft
+#     GIT_REPOSITORY https://bitbucket.org/jpommier/pffft.git
+# )
 
-FetchContent_MakeAvailable(pffft)
-add_library(pffft STATIC ${pffft_SOURCE_DIR}/pffft.c)
-target_compile_definitions(pffft PRIVATE -D_USE_MATH_DEFINES)
-target_include_directories(pffft PUBLIC ${pffft_SOURCE_DIR})
+# FetchContent_MakeAvailable(pffft)
+# add_library(pffft STATIC ${pffft_SOURCE_DIR}/pffft.c)
+# target_compile_definitions(pffft PRIVATE -D_USE_MATH_DEFINES)
+# target_include_directories(pffft PUBLIC ${pffft_SOURCE_DIR})
+
+find_package(FFTW3 REQUIRED)
+    # set(FFTW3_INCLUDE_DIRS
+    #     "/usr/local/include"
+    #     CACHE STRING "FFTW3
+    # # include dirs")
+
+    # set(FFTW3_LIBRARY_DIRS
+    #     "/usr/local/lib"
+    #     CACHE STRING "FFTW3 library dirs")
 
 FetchContent_Declare(
     libsamplerate
     GIT_REPOSITORY https://github.com/libsndfile/libsamplerate.git
 )
 FetchContent_MakeAvailable(libsamplerate)
+
+FetchContent_Declare(
+    eigen
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG nightly
+)
+set(EIGEN_BUILD_DOC OFF)
+set(EIGEN_BUILD_BTL OFF)
+set(EIGEN_BUILD_TESTING OFF)
+set(BUILD_TESTING OFF)
+set(EIGEN_BUILD_PKGCONFIG OFF)
+set(EIGEN_LEAVE_TEST_IN_ALL_TARGET OFF)
+FetchContent_MakeAvailable(eigen)

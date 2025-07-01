@@ -1,10 +1,10 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
-
-#include "audio_file_manager.h"
 
 using audio_stream_info = struct _audio_stream_info
 {
@@ -14,6 +14,16 @@ using audio_stream_info = struct _audio_stream_info
     unsigned int num_output_channels;
 };
 
+enum audio_stream_option
+{
+    kNone = 0,
+    kInput = 1 << 0,
+    kOutput = 1 << 1,
+    kDuplex = kInput | kOutput
+};
+
+using audio_cb = std::function<void(std::span<float> output_buffer, size_t frame_size, size_t num_channels)>;
+
 class audio_manager
 {
   public:
@@ -22,7 +32,7 @@ class audio_manager
     audio_manager() = default;
     virtual ~audio_manager() = default;
 
-    virtual bool start_audio_stream() = 0;
+    virtual bool start_audio_stream(audio_stream_option option, audio_cb cb, uint32_t block_size) = 0;
     virtual void stop_audio_stream() = 0;
     virtual bool is_audio_stream_running() const = 0;
     virtual audio_stream_info get_audio_stream_info() const = 0;
@@ -37,8 +47,7 @@ class audio_manager
 
     virtual std::vector<std::string> get_supported_audio_drivers() const = 0;
     virtual std::string get_current_audio_driver() const = 0;
+    virtual std::string get_current_output_device_name() const = 0;
 
     virtual void play_test_tone(bool play) = 0;
-
-    virtual audio_file_manager* get_audio_file_manager() = 0;
 };

@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <thread>
 
 void sndfile_manager_impl::set_sample_rate(int sample_rate)
 {
@@ -32,10 +33,17 @@ bool sndfile_manager_impl::open_audio_file(std::string_view file_name)
         return false;
     }
 
+    if (file_info_.channels != 1)
+    {
+        std::cerr << "Only mono files are supported" << std::endl;
+        return false;
+    }
+
     file_name_ = file_name;
 
     if (file_info_.samplerate != sample_rate_)
     {
+        std::cout << "Resampling file from " << file_info_.samplerate << " to " << sample_rate_ << std::endl;
         need_resample_ = true;
         if (src_state_)
         {
@@ -105,11 +113,11 @@ bool sndfile_manager_impl::open_audio_file(std::string_view file_name)
         }
     }
 
-    // std::cout << "Opened file: " << file_name << std::endl;
-    // std::cout << "Channels: " << file_info_.channels << std::endl;
-    // std::cout << "Sample rate: " << file_info_.samplerate << std::endl;
-    // std::cout << "Frames: " << file_info_.frames << std::endl;
-    // std::cout << "Format:" << file_info_.format << std::endl;
+    std::cout << "Opened file: " << file_name << std::endl;
+    std::cout << "Channels: " << file_info_.channels << std::endl;
+    std::cout << "Sample rate: " << file_info_.samplerate << std::endl;
+    std::cout << "Frames: " << file_info_.frames << std::endl;
+    std::cout << "Format:" << file_info_.format << std::endl;
 
     return true;
 }
@@ -141,8 +149,7 @@ void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, s
         sf_seek(file_, 0, SEEK_SET);
         current_frame_ = 0;
         state_ = AudioPlayerState::kStopped;
-        sf_close(file_);
-        file_ = nullptr;
+        std::cout << "Audio playback stopped." << std::endl;
         return;
     }
 
@@ -153,7 +160,20 @@ void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, s
     }
 
     size_t read = sf_readf_float(file_, buffer_.data(), frame_size);
-    if (read == 0)
+    current_frame_ += read;
+
+    if (read < frame_size && loop_)
+    {
+        assert(current_frame_ == file_info_.frames && "Current frame should match file frames when looping");
+        sf_seek(file_, 0, SEEK_SET);
+        size_t remaining = frame_size - read;
+        size_t looped_read = sf_readf_float(file_, buffer_.data() + read, remaining);
+
+        assert(looped_read == remaining && "Looped read did not match expected size");
+        read += looped_read;
+        current_frame_ = looped_read;
+    }
+    else if (read == 0)
     {
         state_ = AudioPlayerState::kStopRequested;
         return;
@@ -165,7 +185,7 @@ void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, s
         {
             for (size_t j = 0; j < num_channels; ++j)
             {
-                out_buffer[(i * num_channels) + j] = buffer_[(i * num_channels) + j] * gain;
+                out_buffer[(i * num_channels) + j] += buffer_[(i * num_channels) + j] * gain;
             }
         }
     }
@@ -176,12 +196,10 @@ void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, s
         {
             for (size_t j = 0; j < num_channels; ++j)
             {
-                out_buffer[(i * num_channels) + j] = buffer_[i];
+                out_buffer[(i * num_channels) + j] += buffer_[i];
             }
         }
     }
-
-    current_frame_ += read;
 }
 
 audio_file_manager::AudioPlayerState sndfile_manager_impl::get_state() const
@@ -189,13 +207,14 @@ audio_file_manager::AudioPlayerState sndfile_manager_impl::get_state() const
     return state_;
 }
 
-void sndfile_manager_impl::play()
+void sndfile_manager_impl::play(bool loop)
 {
     state_ = AudioPlayerState::kPlaying;
     if (file_ == nullptr && !file_name_.empty())
     {
         open_audio_file(file_name_);
     }
+    loop_ = loop;
 }
 
 void sndfile_manager_impl::pause()
@@ -208,7 +227,14 @@ void sndfile_manager_impl::resume()
     state_ = AudioPlayerState::kPlaying;
 }
 
-void sndfile_manager_impl::stop()
+void sndfile_manager_impl::stop(bool blocking)
 {
     state_ = AudioPlayerState::kStopRequested;
+    if (blocking)
+    {
+        while (state_ != AudioPlayerState::kStopped)
+        {
+            std::this_thread::yield();
+        }
+    }
 }

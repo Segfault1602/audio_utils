@@ -25,10 +25,10 @@ class sndfile_manager_impl : public audio_file_manager
     void process_block(float* out_buffer, size_t frame_size, size_t num_channels, float gain = 1.f) override;
 
     AudioPlayerState get_state() const override;
-    void play() override;
+    void play(bool loop) override;
     void pause() override;
     void resume() override;
-    void stop() override;
+    void stop(bool blocking) override;
 
   private:
     SNDFILE* file_ = nullptr;
@@ -45,4 +45,6 @@ class sndfile_manager_impl : public audio_file_manager
     std::vector<float> buffer_;
 
     AudioPlayerState state_ = AudioPlayerState::kStopped;
+
+    bool loop_ = false;
 };

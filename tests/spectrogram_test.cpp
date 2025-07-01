@@ -42,7 +42,7 @@ int main()
     spec_info.samplerate = info.samplerate;
     spec_info.window_type = FFTWindowType::Hann;
 
-    std::vector<float> spec = spectrogram(buffer.data(), info.frames, spec_info);
+    std::vector<float> spec = Spectrogram(buffer.data(), info.frames, spec_info);
 
     // size of spec should be a multiple of spec_info.fft_size / 2
     const size_t num_freqs = spec_info.fft_size / 2 + 1;

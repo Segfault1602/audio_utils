@@ -1,6 +1,8 @@
 #pragma once
 
+#include <complex>
 #include <cstddef>
+#include <span>
 #include <vector>
 
 enum class FFTWindowType
@@ -16,13 +18,20 @@ struct spectrogram_info
     int fft_size;
     int overlap;
     int samplerate;
+    int window_size;
     FFTWindowType window_type;
+
+    int num_freqs;  // Filled by the function
+    int num_frames; // Filled by the function
 };
 
-void get_window(FFTWindowType type, float* window, size_t count);
+std::vector<std::complex<float>> FFT(std::span<const float> in, size_t nfft = 0);
+std::vector<float> AbsFFT(std::span<const float> in, size_t nfft = 0, bool db = false, bool normalize = false);
 
-void fft(const float* in, float* out, size_t count);
+std::vector<float> AbsCepstrum(std::span<const float> in, size_t nfft = 0);
 
-void fft_abs(const float* in, float* out, size_t count);
+std::vector<float> Spectrogram(const float* in, size_t count, spectrogram_info& info);
 
-std::vector<float> spectrogram(const float* in, size_t count, const spectrogram_info& info);
+std::vector<float> MelSpectrogram(const float* in, size_t count, spectrogram_info& info, size_t n_mels);
+
+std::vector<float> GetMelFrequencies(size_t n_mels, float f_min, float f_max);

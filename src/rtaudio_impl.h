@@ -11,10 +11,7 @@
 #include <string_view>
 
 #include "audio_manager.h"
-#include "audio_file_manager.h"
 #include "test_tone.h"
-
-class audio_file_manager;
 
 class rtaudio_manager_impl : public audio_manager
 {
@@ -22,7 +19,7 @@ class rtaudio_manager_impl : public audio_manager
     rtaudio_manager_impl();
     ~rtaudio_manager_impl() override;
 
-    bool start_audio_stream() override;
+    bool start_audio_stream(audio_stream_option option, audio_cb cb, uint32_t block_size) override;
     void stop_audio_stream() override;
     bool is_audio_stream_running() const override;
     audio_stream_info get_audio_stream_info() const override;
@@ -36,14 +33,13 @@ class rtaudio_manager_impl : public audio_manager
     std::vector<std::string> get_input_devices_name() const override;
     std::vector<std::string> get_supported_audio_drivers() const override;
     std::string get_current_audio_driver() const override;
+    std::string get_current_output_device_name() const override;
 
     void play_test_tone(bool play) override;
 
-    audio_file_manager* get_audio_file_manager() override;
-
   private:
-    static int rtaudio_cb_static(void* output_buffer, void* input_buffer, unsigned int n_buffer_frames, double stream_time,
-                                 RtAudioStreamStatus status, void* user_data);
+    static int rtaudio_cb_static(void* output_buffer, void* input_buffer, unsigned int n_buffer_frames,
+                                 double stream_time, RtAudioStreamStatus status, void* user_data);
     int rtaudio_cb_impl(void* output_buffer, void* input_buffer, unsigned int n_buffer_frames, double stream_time,
                         RtAudioStreamStatus status);
 
@@ -51,12 +47,13 @@ class rtaudio_manager_impl : public audio_manager
     RtAudio::StreamParameters output_stream_parameters_;
     RtAudio::StreamParameters input_stream_parameters_;
 
+    audio_stream_option current_stream_option_ = audio_stream_option::kNone;
+
     int current_output_device_id_ = -1;
     int current_input_device_id_ = -1;
 
     uint8_t input_selected_channels_ = 0;
 
-    uint32_t buffer_size_ = 512;
     uint32_t sample_rate_ = 48000;
     RtAudio::Api current_audio_api_ = RtAudio::Api::UNSPECIFIED;
 
@@ -64,5 +61,6 @@ class rtaudio_manager_impl : public audio_manager
 
     TestToneGenerator test_tone_;
 
-    std::unique_ptr<audio_file_manager> audio_file_manager_;
+    audio_cb cb_ = nullptr;
+    uint32_t block_size_ = 512;
 };
