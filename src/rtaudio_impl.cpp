@@ -1,9 +1,9 @@
 #include "rtaudio_impl.h"
 
-#include <RtAudio.h>
-#include <_string.h>
 #include <cassert>
 #include <iostream>
+#include <rtaudio/RtAudio.h>
+#include <string>
 #include <vector>
 
 namespace
@@ -15,17 +15,15 @@ void RtAudioErrorCb(RtAudioErrorType type, const std::string& errorText)
 } // namespace
 
 rtaudio_manager_impl::rtaudio_manager_impl()
-    : current_output_device_id_(-1)
-    , current_input_device_id_(-1)
 {
     rtaudio_ = std::make_unique<RtAudio>(RtAudio::Api::MACOSX_CORE, RtAudioErrorCb);
 
-    std::vector<RtAudio::Api> apis;
-    rtaudio_->getCompiledApi(apis);
-    for (auto api : apis)
-    {
-        std::cout << "Compiled API: " << RtAudio::getApiDisplayName(api) << std::endl;
-    }
+    // std::vector<RtAudio::Api> apis;
+    // rtaudio_->getCompiledApi(apis);
+    // for (auto api : apis)
+    // {
+    //     std::cout << "Compiled API: " << RtAudio::getApiDisplayName(api) << std::endl;
+    // }
 
     // Don't open input by default
     current_output_device_id_ = rtaudio_->getDefaultOutputDevice();
@@ -88,8 +86,6 @@ bool rtaudio_manager_impl::start_audio_stream(audio_stream_option option, audio_
     cb_ = cb;
 
     test_tone_.SetSampleRate(sample_rate_);
-
-    std::cout << "Audio stream started" << std::endl;
 
     return true;
 }

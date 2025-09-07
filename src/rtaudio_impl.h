@@ -1,6 +1,6 @@
 #pragma once
 
-#include <RtAudio.h>
+#include <rtaudio/RtAudio.h>
 
 #include <atomic>
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include "audio_manager.h"
+#include "audio_utils/audio_manager.h"
 #include "test_tone.h"
 
 class rtaudio_manager_impl : public audio_manager

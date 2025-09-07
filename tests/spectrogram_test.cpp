@@ -4,7 +4,7 @@
 
 #include <sndfile.h>
 
-#include "fft_utils.h"
+#include "audio_utils/fft_utils.h"
 
 int main()
 {
