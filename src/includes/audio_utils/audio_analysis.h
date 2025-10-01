@@ -9,14 +9,18 @@ namespace audio_utils::analysis
 {
 struct SpectrogramInfo
 {
-    int fft_size;
-    int overlap;
-    int samplerate;
-    int window_size;
+    uint32_t fft_size;
+    uint32_t overlap;
+    uint32_t window_size;
+    uint32_t samplerate;
     FFTWindowType window_type;
+};
 
-    int num_freqs;  // Filled by the function
-    int num_frames; // Filled by the function
+struct SpectrogramResult
+{
+    std::vector<float> data; // Spectrogram data in column-major order
+    int num_bins;            // Number of frequency bins
+    int num_frames;          // Number of time frames
 };
 
 /**
@@ -26,13 +30,7 @@ struct SpectrogramInfo
  */
 std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize = true);
 
-/**
- * @brief Computes the spectrogram of a signal.
- * @param signal The input signal as a span of floats.
- * @param info Spectrogram information including FFT size, window size, overlap, and sample rate.
- * @return A vector containing the spectrogram values in column-major order.
- */
-std::vector<float> Spectrogram(std::span<const float> signal, SpectrogramInfo& info);
+SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, bool flip = false);
 
 /**
  * @brief Computes the Mel spectrogram of a signal.
@@ -41,6 +39,7 @@ std::vector<float> Spectrogram(std::span<const float> signal, SpectrogramInfo& i
  * @param n_mels The number of Mel frequency bands.
  * @return A vector containing the Mel spectrogram values in column-major order.
  */
-std::vector<float> MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels);
+SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels,
+                                 bool flip = false);
 
 } // namespace audio_utils::analysis

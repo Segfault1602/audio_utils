@@ -1,7 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <string>
+
 
 class audio_file_manager
 {
@@ -25,7 +27,8 @@ class audio_file_manager
     virtual std::string get_open_file_name() const = 0;
     virtual bool is_file_open() const = 0;
 
-    virtual void process_block(float* out_buffer, size_t frame_size, size_t num_channels, float gain = 1.f) = 0;
+    virtual void process_block(std::span<float> out_buffer, size_t frame_size, size_t num_channels,
+                               float gain = 1.f) = 0;
 
     virtual AudioPlayerState get_state() const = 0;
     virtual void play(bool loop) = 0;

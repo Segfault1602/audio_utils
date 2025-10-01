@@ -6,6 +6,7 @@ target_sources(
     PRIVATE audio_analysis.cpp
             audio_file_manager.cpp
             audio_manager.cpp
+            fft.cpp
             fft_utils.cpp
             ring_buffer.h
             rtaudio_impl.cpp
@@ -21,22 +22,27 @@ target_sources(
            ./includes/audio_utils/audio_analysis.h
            ./includes/audio_utils/audio_file_manager.h
            ./includes/audio_utils/audio_manager.h
-           ./includes/audio_utils/fft_utils.h)
+           ./includes/audio_utils/fft_utils.h
+           ./includes/audio_utils/fft.h)
 
 target_link_libraries(
     audio_utils
-    PRIVATE RtAudio::rtaudio
+    PUBLIC RtAudio::rtaudio
+    PRIVATE
             SndFile::sndfile
-            FFTW3::fftw3f
             SampleRate::samplerate
-            Eigen3::Eigen)
+            Eigen3::Eigen
+            pffft::pffft)
 
-target_compile_options(audio_utils PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>
-                                           -fno-omit-frame-pointer)
+if(APPLE)
+    target_link_libraries(audio_utils PRIVATE "-framework Accelerate")
+endif()
 
-target_link_options(audio_utils PUBLIC $<$<CONFIG:Debug>:-fsanitize=address>)
+target_compile_options(audio_utils PRIVATE ${AUDIO_UTILS_CXX_COMPILE_OPTIONS})
+target_link_options(audio_utils PUBLIC ${AUDIO_UTILS_LINK_OPTIONS})
+target_compile_definitions(audio_utils PRIVATE ${AUDIO_UTILS_COMPILE_DEFINITION})
 
-target_compile_features(audio_utils PUBLIC cxx_std_20)
+target_compile_features(audio_utils PUBLIC cxx_std_23)
 
 install(
     TARGETS audio_utils

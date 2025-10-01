@@ -1,12 +1,11 @@
 {
-  "dependencies": [
-    "catch2",
-    "eigen3",
-    "fftw3",
-    "libsamplerate",
-    "libsndfile",
-    "pffft",
-    "rtaudio",
-    "nanobench"
-  ]
+    "dependencies": [
+        "catch2",
+        "eigen3",
+        "libsamplerate",
+        "libsndfile",
+        "pffft",
+        "rtaudio",
+        "nanobench"
+    ]
 }

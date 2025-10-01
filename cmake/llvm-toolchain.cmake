@@ -1,19 +1,28 @@
 include_guard(GLOBAL)
 
-set(CMAKE_CXX_COMPILER "/Users/alex/llvm_install/bin/clang++")
-set(CMAKE_C_COMPILER "/Users/alex/llvm_install/bin/clang")
+if(APPLE)
+    set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm@20/bin/clang++")
+    set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm@20/bin/clang")
+else()
+    set(CMAKE_CXX_COMPILER "clang++")
+    set(CMAKE_C_COMPILER "clang")
+endif()
 
-set(SFFDN_SANITIZER $<$<CONFIG:Debug>:-fsanitize=address>)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(AUDIO_UTILS_SANITIZER -fsanitize=address)
+    set(AUDIO_UTILS_COMPILE_DEFINITION -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
+endif()
 
-set(SFFDN_CXX_COMPILE_OPTIONS
+set(AUDIO_UTILS_CXX_COMPILE_OPTIONS
     -Wall
     -Wextra
     -Wpedantic
     -Werror
     -Wno-sign-compare
-    # -Wunsafe-buffer-usage
-    ${SFFDN_SANITIZER})
+    -Wunsafe-buffer-usage
+    -fno-omit-frame-pointer
+    ${AUDIO_UTILS_SANITIZER})
 
-set(SFFDN_LINK_OPTIONS ${SFFDN_SANITIZER})
+set(AUDIO_UTILS_LINK_OPTIONS ${AUDIO_UTILS_SANITIZER})
 
 include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)

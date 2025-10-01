@@ -11,6 +11,16 @@
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb"
+        },
+        {
+            "name": "audio_test",
+            "type": "lldb-dap",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/tests/audio_test",
+            "args": [
+                "FFTReal"
+            ],
+            "cwd": "${workspaceFolder}",
         }
     ]
-  }
+}

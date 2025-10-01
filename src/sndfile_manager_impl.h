@@ -22,7 +22,7 @@ class sndfile_manager_impl : public audio_file_manager
     std::string get_open_file_name() const override;
     bool is_file_open() const override;
 
-    void process_block(float* out_buffer, size_t frame_size, size_t num_channels, float gain = 1.f) override;
+    void process_block(std::span<float> out_buffer, size_t frame_size, size_t num_channels, float gain = 1.f) override;
 
     AudioPlayerState get_state() const override;
     void play(bool loop) override;
@@ -35,7 +35,6 @@ class sndfile_manager_impl : public audio_file_manager
     SF_INFO file_info_{};
     size_t current_frame_ = 0;
     std::atomic<bool> is_playing_ = false;
-    bool is_paused_ = false;
     std::string file_name_;
     int sample_rate_ = 48000;
     bool need_resample_ = false;

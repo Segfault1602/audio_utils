@@ -1,7 +1,9 @@
 #include "rtaudio_impl.h"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <ranges>
 #include <rtaudio/RtAudio.h>
 #include <string>
 #include <vector>
@@ -10,7 +12,7 @@ namespace
 {
 void RtAudioErrorCb(RtAudioErrorType type, const std::string& errorText)
 {
-    std::cerr << "RTAudio Error: " << errorText << std::endl;
+    std::cerr << "RTAudio Error (Type=" << static_cast<int>(type) << "): " << errorText << std::endl;
 }
 } // namespace
 
@@ -57,8 +59,8 @@ bool rtaudio_manager_impl::start_audio_stream(audio_stream_option option, audio_
     RtAudio::StreamParameters* out_param_ptr = (option & audio_stream_option::kOutput) ? &out_parameters : nullptr;
     RtAudio::StreamParameters* in_param_ptr = (option & audio_stream_option::kInput) ? &in_parameters : nullptr;
 
-    RtAudioErrorType error = rtaudio_->openStream(out_param_ptr, nullptr, RTAUDIO_FLOAT32, sample_rate_, &block_size_,
-                                                  &rtaudio_cb_static, this);
+    RtAudioErrorType error = rtaudio_->openStream(out_param_ptr, in_param_ptr, RTAUDIO_FLOAT32, sample_rate_,
+                                                  &block_size_, &rtaudio_cb_static, this);
 
     if (error != RTAUDIO_NO_ERROR)
     {
@@ -110,7 +112,7 @@ bool rtaudio_manager_impl::is_audio_stream_running() const
 
 audio_stream_info rtaudio_manager_impl::get_audio_stream_info() const
 {
-    audio_stream_info info = {0};
+    audio_stream_info info{0, 0, 0, 0};
     if (current_input_device_id_ == -1)
     {
         return info;
@@ -294,8 +296,9 @@ int rtaudio_manager_impl::rtaudio_cb_static(void* output_buffer, void* input_buf
                                                                           stream_time, status);
 }
 
-int rtaudio_manager_impl::rtaudio_cb_impl(void* output_buffer, void* input_buffer, unsigned int n_buffer_frames,
-                                          double stream_time, RtAudioStreamStatus status)
+int rtaudio_manager_impl::rtaudio_cb_impl(void* output_buffer, [[maybe_unused]] void* input_buffer,
+                                          unsigned int n_buffer_frames, [[maybe_unused]] double stream_time,
+                                          RtAudioStreamStatus status)
 {
     if (status & RTAUDIO_INPUT_OVERFLOW)
     {
@@ -306,18 +309,22 @@ int rtaudio_manager_impl::rtaudio_cb_impl(void* output_buffer, void* input_buffe
         std::cerr << "Stream underflow detected!" << std::endl;
     }
 
+    const uint32_t output_size = n_buffer_frames * output_stream_parameters_.nChannels;
+
+#pragma clang unsafe_buffer_usage begin
+    auto output_span = std::span(static_cast<float*>(output_buffer), output_size);
+#pragma clang unsafe_buffer_usage end
+
     float* output = static_cast<float*>(output_buffer);
     float test_tone = 0.f;
-    float* input = static_cast<float*>(input_buffer);
 
     if (output)
     {
-        memset(output, 0, n_buffer_frames * output_stream_parameters_.nChannels * sizeof(float));
+        std::ranges::fill(output_span, 0.0f);
 
         if (cb_)
         {
-            cb_(std::span<float>{output, n_buffer_frames * output_stream_parameters_.nChannels}, n_buffer_frames,
-                output_stream_parameters_.nChannels);
+            cb_(output_span, n_buffer_frames, output_stream_parameters_.nChannels);
         }
 
         if (play_test_tone_)
@@ -327,7 +334,7 @@ int rtaudio_manager_impl::rtaudio_cb_impl(void* output_buffer, void* input_buffe
                 test_tone = test_tone_.Tick();
                 for (auto j = 0; j < output_stream_parameters_.nChannels; j++)
                 {
-                    output[(i * output_stream_parameters_.nChannels) + j] += test_tone;
+                    output_span[(i * output_stream_parameters_.nChannels) + j] += test_tone;
                 }
             }
         }

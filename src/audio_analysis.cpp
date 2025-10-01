@@ -1,12 +1,11 @@
 #include "audio_utils/audio_analysis.h"
 
-#include <iostream>
-#include <map>
 #include <vector>
 
+#include "audio_utils/fft.h"
 #include "audio_utils/fft_utils.h"
+
 #include <Eigen/Core>
-#include <fftw3.h>
 
 namespace
 {
@@ -97,79 +96,6 @@ Eigen::MatrixXf GetMelFilter(size_t n_mels, size_t nfft, size_t sample_rate)
 
     return filter_bank.transpose();
 }
-struct FFTWPlanInfo
-{
-    fftwf_plan plan;
-    float* signal;
-    fftwf_complex* spectrum;
-};
-
-class FFTWCache
-{
-  public:
-    static FFTWCache& Instance()
-    {
-        static FFTWCache instance;
-        return instance;
-    }
-
-    FFTWPlanInfo GetForwardPlan(size_t nfft)
-    {
-        auto it = forward_plans_.find(nfft);
-        if (it != forward_plans_.end())
-        {
-            return it->second;
-        }
-
-        FFTWPlanInfo plan_info{};
-        plan_info.signal = static_cast<float*>(fftwf_malloc(nfft * sizeof(float)));
-        plan_info.spectrum = static_cast<fftwf_complex*>(fftwf_malloc((nfft / 2 + 1) * sizeof(fftwf_complex)));
-
-        plan_info.plan = fftwf_plan_dft_r2c_1d(nfft, plan_info.signal, plan_info.spectrum, FFTW_MEASURE);
-        forward_plans_[nfft] = plan_info;
-        return plan_info;
-    }
-
-    FFTWPlanInfo GetBackwardPlan(size_t nfft)
-    {
-        auto it = backward_plans_.find(nfft);
-        if (it != backward_plans_.end())
-        {
-            return it->second;
-        }
-
-        FFTWPlanInfo plan_info{};
-        plan_info.signal = static_cast<float*>(fftwf_malloc(nfft * sizeof(float)));
-        plan_info.spectrum = static_cast<fftwf_complex*>(fftwf_malloc((nfft / 2 + 1) * sizeof(fftwf_complex)));
-        plan_info.plan = fftwf_plan_dft_c2r_1d(nfft, plan_info.spectrum, plan_info.signal, FFTW_MEASURE);
-        backward_plans_[nfft] = plan_info;
-        return plan_info;
-    }
-
-  private:
-    FFTWCache() = default;
-
-    ~FFTWCache()
-    {
-        // fftwf_cleanup_threads();
-
-        for (auto& pair : forward_plans_)
-        {
-            fftwf_destroy_plan(pair.second.plan);
-            fftwf_free(pair.second.signal);
-            fftwf_free(pair.second.spectrum);
-        }
-        for (auto& pair : backward_plans_)
-        {
-            fftwf_destroy_plan(pair.second.plan);
-            fftwf_free(pair.second.signal);
-            fftwf_free(pair.second.spectrum);
-        }
-    }
-
-    std::map<size_t, FFTWPlanInfo> forward_plans_;
-    std::map<size_t, FFTWPlanInfo> backward_plans_;
-};
 } // namespace
 
 namespace audio_utils::analysis
@@ -177,186 +103,117 @@ namespace audio_utils::analysis
 
 std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize)
 {
-    const size_t kNFFT = 2 * signal.size();
-    const size_t kInSize = kNFFT * sizeof(float);
-    const size_t kOutSize = (kNFFT / 2 + 1) * sizeof(fftwf_complex);
-    float* aligned_in = static_cast<float*>(fftwf_malloc(kInSize));
-    fftwf_complex* aligned_out = static_cast<fftwf_complex*>(fftwf_malloc(kOutSize));
+    const uint32_t kNFFT = FFT::NextSupportedFFTSize(2 * signal.size());
+    std::vector<float> out(kNFFT, 0.0f);
 
-    fftwf_plan forward_plan = fftwf_plan_dft_r2c_1d(kNFFT, aligned_in, aligned_out, FFTW_ESTIMATE);
-    fftwf_plan backward_plan = fftwf_plan_dft_c2r_1d(kNFFT, aligned_out, aligned_in, FFTW_ESTIMATE);
+    FFT fft(kNFFT);
 
-    std::fill(aligned_in, aligned_in + kNFFT, 0.0f);
-    // std::fill(aligned_out, aligned_out + kNFFT, 0.0f);
-    std::copy(signal.begin(), signal.end(), aligned_in);
+    std::vector<std::complex<float>> spectrum((kNFFT / 2) + 1, 0);
 
-    fftwf_execute(forward_plan);
+    fft.Forward(signal, spectrum);
 
-    for (size_t i = 0; i < (kNFFT / 2 + 1); ++i)
+    for (size_t i = 0; i < spectrum.size(); ++i)
     {
-        std::complex<float> c(aligned_out[i][0], aligned_out[i][1]);
-        aligned_out[i][0] = std::pow(std::abs(c), 2);
-        aligned_out[i][1] = 0.0f; // Set imaginary parts to zero
+        spectrum[i] = std::pow(std::abs(spectrum[i]), 2.f);
     }
 
-    fftwf_execute(backward_plan);
+    fft.Inverse(spectrum, out);
 
-    std::vector<float> out(signal.size());
-    for (size_t i = 0; i < signal.size(); ++i)
-    {
-        out[i] = aligned_in[i] / static_cast<float>(kNFFT);
-    }
+    // Only keep the first half (positive lags)
+    out.resize(signal.size());
 
     if (normalize)
     {
-        const float coeff = out[0];
-        for (size_t i = 0; i < signal.size(); ++i)
+        float zero_lag = out[0];
+
+        for (auto& val : out)
         {
-            out[i] /= coeff; // Normalize so the the first value is 1.0
+            val /= zero_lag;
         }
     }
 
-    fftwf_free(aligned_in);
-    fftwf_free(aligned_out);
-    fftwf_destroy_plan(forward_plan);
-    fftwf_destroy_plan(backward_plan);
     return out;
 }
 
-std::vector<float> Spectrogram(std::span<const float> signal, SpectrogramInfo& info)
+SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, bool flip)
 {
     if (info.overlap >= info.fft_size)
     {
         throw std::invalid_argument("Overlap must be less than FFT size");
     }
 
+    if (info.overlap >= info.window_size)
+    {
+        throw std::invalid_argument("Overlap must be less than window size");
+    }
+
+    const uint32_t hop = info.window_size - info.overlap;
+    const uint32_t num_frames = (signal.size() - info.overlap) / hop;
+    const uint32_t num_bins = info.fft_size / 2 + 1;
+
     std::vector<float> result;
-
-    const float input_duration = static_cast<float>(signal.size()) / info.samplerate;
-    const size_t hop = info.window_size - info.overlap;
-    info.num_frames = (signal.size() - info.window_size) / hop + 1;
-    info.num_freqs = info.fft_size / 2 + 1;
-
-    result.resize(info.num_frames * info.num_freqs, -50.0f); // Initialize with -50 dB
+    result.resize(num_frames * num_bins, -9999.999f);
 
     std::vector<float> window(info.window_size);
-    GetWindow(info.window_type, window.data(), info.window_size);
+    GetWindow(info.window_type, window);
 
-    FFTWPlanInfo plan_info = FFTWCache::Instance().GetForwardPlan(info.fft_size);
+    FFT fft(info.fft_size);
 
-    std::fill(plan_info.signal, plan_info.signal + info.fft_size, 0.0f);
+    auto spec_span = std::span(result);
 
-    size_t idx = 0;
-    for (size_t b = 0; b < info.num_frames; ++b)
+    std::vector<float> frame(info.window_size);
+
+    for (auto i = 0; i < num_frames; ++i)
     {
-        auto signal_span = signal.subspan(idx);
-        if (signal_span.size() < info.window_size)
+        auto signal_span = signal.subspan(i * hop, info.window_size);
+
+        for (size_t j = 0; j < info.window_size; ++j)
         {
-            std::cerr << "Warning: Not enough input data for the last frame. Padding with zeros." << std::endl;
-            break;
+            frame[j] = signal_span[j] * window[j];
         }
 
-        signal_span = signal_span.first(info.window_size);
-
-        for (size_t i = 0; i < signal_span.size(); ++i)
-        {
-            plan_info.signal[i] = signal_span[i] * window[i];
-        }
-
-        for (size_t i = info.window_size; i < info.fft_size; ++i)
-        {
-            plan_info.signal[i] = 0.0f; // Zero-pad the rest of the input
-        }
-
-        fftwf_execute(plan_info.plan);
-
-        for (int f = 0; f < info.num_freqs; ++f)
-        {
-            std::complex<float> val = reinterpret_cast<std::complex<float>*>(plan_info.spectrum)[f];
-            result.at(f * info.num_frames + b) = 20.0f * std::log10f(std::abs(val));
-            if (std::isinf(result.at(f * info.num_frames + b)) || std::isnan(result.at(f * info.num_frames + b)))
-            {
-                result.at(f * info.num_frames + b) = -50.0f; // Set to -50 dB if log10 is invalid
-            }
-        }
-
-        idx += hop;
+        auto spectrum_subspan = spec_span.subspan(i * num_bins, num_bins);
+        fft.ForwardAbs(frame, spectrum_subspan, false, false);
     }
 
-    return result;
+    if (flip)
+    {
+        Eigen::Map<Eigen::MatrixXf> spec_map(result.data(), num_bins, num_frames);
+        spec_map.colwise().reverseInPlace();
+    }
+
+    SpectrogramResult result_struct;
+    result_struct.data = std::move(result);
+    result_struct.num_bins = num_bins;
+    result_struct.num_frames = num_frames;
+
+    return result_struct;
 }
 
-std::vector<float> MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels)
+SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels, bool flip)
 {
-    if (info.overlap >= info.fft_size)
-    {
-        throw std::invalid_argument("Overlap must be less than FFT size");
-    }
-
-    std::vector<float> result;
+    SpectrogramResult result = STFT(signal, info, false);
 
     Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, info.fft_size, info.samplerate);
 
-    const float input_duration = static_cast<float>(signal.size()) / info.samplerate;
-    const size_t hop = info.window_size - info.overlap;
-    info.num_frames = (signal.size() - info.window_size) / hop + 1;
-    info.num_freqs = info.fft_size / 2 + 1;
+    std::vector<float> mel_data(result.num_frames * n_mels, -50.0f); // Initialize with -50 dB
 
-    result.resize(info.num_frames * n_mels, -50.0f); // Initialize with -50 dB
+    Eigen::Map<Eigen::MatrixXf> result_map(mel_data.data(), n_mels, result.num_frames);
+    Eigen::Map<Eigen::MatrixXf> stft_map(result.data.data(), result.num_bins, result.num_frames);
 
-    Eigen::Map<Eigen::MatrixXf> result_map(result.data(), info.num_frames, n_mels);
-
-    std::vector<float> window(info.window_size);
-    GetWindow(info.window_type, window.data(), info.window_size);
-
-    FFTWPlanInfo plan_info = FFTWCache::Instance().GetForwardPlan(info.fft_size);
-    float* work_buffer = static_cast<float*>(fftwf_malloc(info.num_freqs * sizeof(float)));
-
-    std::fill(plan_info.signal, plan_info.signal + info.fft_size, 0.0f);
-
-    size_t idx = 0;
-    for (size_t b = 0; b < info.num_frames; ++b)
+    for (auto i = 0; i < stft_map.cols(); ++i)
     {
-        auto signal_span = signal.subspan(idx);
-        if (signal_span.size() < info.window_size)
-        {
-            std::cerr << "Warning: Not enough input data for the last frame. Padding with zeros." << std::endl;
-            break;
-        }
-
-        signal_span = signal_span.first(info.window_size);
-
-        for (size_t i = 0; i < signal_span.size(); ++i)
-        {
-            plan_info.signal[i] = signal_span[i] * window[i];
-        }
-
-        for (size_t i = info.window_size; i < info.fft_size; ++i)
-        {
-            plan_info.signal[i] = 0.0f; // Zero-pad the rest of the input
-        }
-
-        fftwf_execute(plan_info.plan);
-
-        for (size_t i = 0; i < info.num_freqs; ++i)
-        {
-            work_buffer[i] = std::abs(reinterpret_cast<std::complex<float>*>(plan_info.spectrum)[i]);
-        }
-
-        Eigen::Map<Eigen::VectorXf> aligned_out_map(work_buffer, info.num_freqs);
-
-        Eigen::VectorXf mel_spectrum = mel_weights * aligned_out_map;
-
-        mel_spectrum = 20.f * mel_spectrum.array().log10();
-        mel_spectrum = mel_spectrum.array().isInf().select(-60.f, mel_spectrum.array());
-        result_map.row(b) = mel_spectrum.reverse();
-
-        idx += hop;
+        Eigen::VectorXf mel_spectrum = mel_weights * stft_map.col(i);
+        result_map.col(i) = mel_spectrum;
     }
 
-    fftwf_free(work_buffer);
+    if (flip)
+    {
+        result_map.colwise().reverseInPlace();
+    }
 
-    info.num_freqs = n_mels;
+    result.data = std::move(mel_data);
+    result.num_bins = n_mels;
 
     return result;
 }

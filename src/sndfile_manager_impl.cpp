@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <span>
 #include <thread>
 
 void sndfile_manager_impl::set_sample_rate(int sample_rate)
@@ -96,7 +97,7 @@ bool sndfile_manager_impl::open_audio_file(std::string_view file_name)
         std::string resampled_file_name = std::string("resample_").append(file_name);
         file_ = sf_open(resampled_file_name.c_str(), SFM_WRITE, &file_info_);
 
-        SF_INFO resampled_info{0};
+        SF_INFO resampled_info{};
         resampled_info.channels = file_info_.channels;
         resampled_info.samplerate = sample_rate_;
         resampled_info.frames = src_data.output_frames_gen;
@@ -137,8 +138,10 @@ bool sndfile_manager_impl::is_file_open() const
     return file_ != nullptr;
 }
 
-void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, size_t num_channels, float gain)
+void sndfile_manager_impl::process_block(std::span<float> out_buffer, size_t frame_size, size_t num_channels,
+                                         float gain)
 {
+    assert(out_buffer.size() >= frame_size * num_channels);
     if (state_ == AudioPlayerState::kStopped || state_ == AudioPlayerState::kPaused)
     {
         return;
@@ -167,7 +170,7 @@ void sndfile_manager_impl::process_block(float* out_buffer, size_t frame_size, s
         assert(current_frame_ == file_info_.frames && "Current frame should match file frames when looping");
         sf_seek(file_, 0, SEEK_SET);
         size_t remaining = frame_size - read;
-        size_t looped_read = sf_readf_float(file_, buffer_.data() + read, remaining);
+        size_t looped_read = sf_readf_float(file_, std::span(buffer_).subspan(read).data(), remaining);
 
         assert(looped_read == remaining && "Looped read did not match expected size");
         read += looped_read;
