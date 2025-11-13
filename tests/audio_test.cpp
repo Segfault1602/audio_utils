@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <iostream>
 #include <mdspan>
-#include <sys/types.h>
+#include <random>
 #include <vector>
 
 #include <sndfile.h>
@@ -156,26 +156,48 @@ TEST_CASE("Spectrogram")
 
     auto spectrogram = audio_utils::analysis::STFT(signal, info);
 
-    std::mdspan<float, std::dextents<size_t, 2>, std::layout_left> spec_mdspan{spectrogram.data(), info.num_freqs,
-                                                                               info.num_frames};
+    std::mdspan<float, std::dextents<size_t, 2>, std::layout_left> spec_mdspan{
+        spectrogram.data.data(), spectrogram.num_bins, spectrogram.num_frames};
 
     uint32_t row_count = 0;
     uint32_t col_count = 0;
     auto test_signal_spectrogram =
         test_utils::LoadTestSignal2DMetric(test_utils::kTestSignalSpectrogram, row_count, col_count);
 
-    std::cout << "Spectrogram size: " << info.num_freqs << " x " << info.num_frames << std::endl;
+    std::cout << "Spectrogram size: " << spectrogram.num_bins << " x " << spectrogram.num_frames << std::endl;
     std::cout << "Test spectrogram size: " << row_count << " x " << col_count << std::endl;
-    REQUIRE(info.num_freqs == row_count);
-    REQUIRE(info.num_frames == col_count);
+    REQUIRE(spectrogram.num_bins == row_count);
+    REQUIRE(spectrogram.num_frames == col_count);
 
     auto ref_mdspan = std::mdspan(test_signal_spectrogram.data(), row_count, col_count);
 
-    for (auto i = 0; i < info.num_freqs; ++i)
+    for (auto i = 0; i < spectrogram.num_bins; ++i)
     {
-        for (auto j = 0; j < info.num_frames; ++j)
+        for (auto j = 0; j < spectrogram.num_frames; ++j)
         {
             REQUIRE_THAT((spec_mdspan[i, j]), Catch::Matchers::WithinAbs((ref_mdspan[i, j]), 1e-5f));
         }
     }
+}
+
+TEST_CASE("SpectralFlatness")
+{
+    constexpr uint32_t kSize = 4096;
+    std::vector<float> noise(kSize, 0.f);
+
+    // Fill the noise vector with random values
+    std::mt19937 rng(0); // Fixed seed for reproducibility
+    std::normal_distribution<float> dist(0.f, 1.f);
+    for (auto& sample : noise)
+    {
+        sample = dist(rng);
+    }
+
+    audio_utils::FFT fft(kSize);
+    std::vector<float> spectrum((kSize / 2) + 1, 0.f);
+
+    fft.ForwardAbs(noise, spectrum);
+
+    float flatness = audio_utils::analysis::SpectralFlatness(spectrum);
+    std::cout << "Spectral flatness: " << flatness << std::endl;
 }

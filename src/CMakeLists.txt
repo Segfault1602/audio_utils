@@ -8,7 +8,6 @@ target_sources(
             audio_manager.cpp
             fft.cpp
             fft_utils.cpp
-            ring_buffer.h
             rtaudio_impl.cpp
             sndfile_manager_impl.cpp
             test_tone.cpp
@@ -23,7 +22,8 @@ target_sources(
            ./includes/audio_utils/audio_file_manager.h
            ./includes/audio_utils/audio_manager.h
            ./includes/audio_utils/fft_utils.h
-           ./includes/audio_utils/fft.h)
+           ./includes/audio_utils/fft.h
+           ./includes/audio_utils/ring_buffer.h)
 
 target_link_libraries(
     audio_utils

@@ -135,6 +135,29 @@ std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize
     return out;
 }
 
+float SpectralFlatness(std::span<const float> spectrum)
+{
+    float geo_mean = 1.0f;
+    float arith_mean = 0.0f;
+
+    for (const auto& mag : spectrum)
+    {
+        const float power = mag * mag;
+        geo_mean += std::log(power + std::numeric_limits<float>::epsilon());
+        arith_mean += power;
+    }
+
+    geo_mean = std::exp(geo_mean / static_cast<float>(spectrum.size()));
+    arith_mean /= static_cast<float>(spectrum.size());
+
+    if (arith_mean == 0.0f)
+    {
+        return 0.0f;
+    }
+
+    return geo_mean / arith_mean;
+}
+
 SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, bool flip)
 {
     if (info.overlap >= info.fft_size)

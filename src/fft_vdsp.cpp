@@ -11,11 +11,6 @@
 
 namespace
 {
-constexpr uint32_t IsPowerOfTwo(uint32_t N)
-{
-    /* https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2 */
-    return N && !(N & (N - 1));
-}
 
 float* AllocateBuffer(size_t size)
 {
@@ -84,11 +79,6 @@ uint32_t FFT::NextSupportedFFTSize(uint32_t target_size)
 
 FFT::FFT(uint32_t fft_size)
 {
-    if (!IsPowerOfTwo(fft_size))
-    {
-        // throw std::invalid_argument("FFT size must be a power of two");
-    }
-
     state_ = std::make_unique<FFTState>();
 
     state_->numRealSamples = fft_size;

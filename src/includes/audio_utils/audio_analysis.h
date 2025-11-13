@@ -30,6 +30,8 @@ struct SpectrogramResult
  */
 std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize = true);
 
+float SpectralFlatness(std::span<const float> magnitude_spectrum);
+
 SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, bool flip = false);
 
 /**

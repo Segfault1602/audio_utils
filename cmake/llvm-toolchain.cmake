@@ -9,7 +9,9 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(AUDIO_UTILS_SANITIZER -fsanitize=address)
+    if(APPLE)
+        set(AUDIO_UTILS_SANITIZER -fsanitize=address)
+    endif()
     set(AUDIO_UTILS_COMPILE_DEFINITION -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
 endif()
 
