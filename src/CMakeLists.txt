@@ -3,14 +3,7 @@ add_library(audio_utils::audio_utils ALIAS audio_utils)
 
 target_sources(
     audio_utils
-    PRIVATE audio_analysis.cpp
-            audio_file_manager.cpp
-            audio_manager.cpp
-            fft.cpp
-            fft_utils.cpp
-            rtaudio_impl.cpp
-            sndfile_manager_impl.cpp
-            test_tone.cpp
+    PRIVATE audio_analysis.cpp fft.cpp fft_utils.cpp
     PUBLIC FILE_SET
            "audio_utils_headers"
            TYPE
@@ -25,14 +18,17 @@ target_sources(
            ./includes/audio_utils/fft.h
            ./includes/audio_utils/ring_buffer.h)
 
-target_link_libraries(
-    audio_utils
-    PUBLIC RtAudio::rtaudio
-    PRIVATE
-            SndFile::sndfile
-            SampleRate::samplerate
-            Eigen3::Eigen
-            pffft::pffft)
+target_link_libraries(audio_utils PRIVATE Eigen3::Eigen pffft::pffft)
+
+if(AUDIO_UTILS_USE_RTAUDIO)
+    target_sources(audio_utils PRIVATE audio_manager.cpp rtaudio_impl.cpp test_tone.cpp)
+    target_link_libraries(audio_utils PUBLIC RtAudio::rtaudio)
+endif()
+
+if(AUDIO_UTILS_USE_SNDFILE)
+    target_sources(audio_utils PRIVATE audio_file_manager.cpp sndfile_manager_impl.cpp)
+    target_link_libraries(audio_utils PUBLIC SndFile::sndfile SampleRate::samplerate)
+endif()
 
 if(APPLE)
     target_link_libraries(audio_utils PRIVATE "-framework Accelerate")

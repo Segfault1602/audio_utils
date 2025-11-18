@@ -314,4 +314,10 @@ void FFT::Convolve(std::span<const float> signal, std::span<const float> filter,
     pffft_aligned_free(aligned_filter);
     pffft_aligned_free(aligned_convolution);
 }
+
+uint32_t FFT::GetFFTSize() const
+{
+    return state_->fft_size_;
+}
+
 } // namespace audio_utils

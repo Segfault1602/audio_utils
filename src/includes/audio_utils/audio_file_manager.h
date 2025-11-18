@@ -4,6 +4,10 @@
 #include <span>
 #include <string>
 
+namespace audio_utils::audio_file
+{
+void WriteWavFile(std::string_view filename, std::span<const float> buffer, int sample_rate);
+}
 
 class audio_file_manager
 {
