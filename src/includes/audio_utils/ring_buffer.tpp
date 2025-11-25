@@ -108,13 +108,11 @@ void ring_buffer<T>::write(const T* data, size_t size)
 
     if (write_available == 0)
     {
-        std::cerr << "ring_buffer::write: No space to write, dropping samples" << std::endl;
         return;
     }
 
     if (size > write_available)
     {
-        std::cerr << "ring_buffer::write: No enough space to write, dropping samples" << std::endl;
         size = write_available;
     }
 
