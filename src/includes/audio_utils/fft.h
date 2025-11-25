@@ -32,6 +32,8 @@ class FFT
 
     void Convolve(std::span<const float> signal, std::span<const float> filter, std::span<float> result);
 
+    uint32_t GetFFTSize() const;
+
     static uint32_t NextSupportedFFTSize(uint32_t min_size);
 
   private:

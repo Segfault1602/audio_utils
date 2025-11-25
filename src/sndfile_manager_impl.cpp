@@ -8,6 +8,32 @@
 #include <span>
 #include <thread>
 
+namespace audio_utils::audio_file
+{
+void WriteWavFile(std::string_view filename, std::span<const float> buffer, int sample_rate)
+{
+    SF_INFO sf_info{};
+    sf_info.channels = 1;
+    sf_info.samplerate = sample_rate;
+    sf_info.format = SF_FORMAT_WAV | SF_FORMAT_FLOAT;
+
+    SNDFILE* file = sf_open(filename.data(), SFM_WRITE, &sf_info);
+    if (!file)
+    {
+        std::cerr << "Failed to open file for writing: " << filename << std::endl;
+        return;
+    }
+
+    sf_count_t written = sf_writef_float(file, buffer.data(), buffer.size() / sf_info.channels);
+    if (written != static_cast<sf_count_t>(buffer.size() / sf_info.channels))
+    {
+        std::cerr << "Failed to write all samples to file: " << filename << std::endl;
+    }
+
+    sf_close(file);
+}
+} // namespace audio_utils::audio_file
+
 void sndfile_manager_impl::set_sample_rate(int sample_rate)
 {
     sample_rate_ = sample_rate;
