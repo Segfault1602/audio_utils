@@ -1,10 +1,3 @@
-# add_executable(
-#     spectrogram_test
-#     spectrogram_test.cpp)
-# target_link_libraries(
-#     spectrogram_test
-#     PRIVATE audio_utils SndFile::sndfile)
-
 find_package(Catch2 REQUIRED)
 find_package(nanobench REQUIRED)
 
@@ -17,3 +10,6 @@ target_link_libraries(audio_test PRIVATE audio_utils Catch2::Catch2WithMain SndF
 add_executable(audio_perf audio_perf.cpp)
 target_link_libraries(audio_perf PRIVATE audio_utils Catch2::Catch2WithMain nanobench::nanobench
                                          SndFile::sndfile)
+target_compile_options(audio_perf PRIVATE ${AUDIO_UTILS_CXX_COMPILE_OPTIONS})
+target_link_options(audio_perf PUBLIC ${AUDIO_UTILS_LINK_OPTIONS})
+target_compile_definitions(audio_perf PRIVATE ${AUDIO_UTILS_COMPILE_DEFINITION})

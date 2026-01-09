@@ -32,6 +32,66 @@ void WriteWavFile(std::string_view filename, std::span<const float> buffer, int 
 
     sf_close(file);
 }
+
+bool ReadWavFile(std::string_view filename, std::vector<float>& out_buffer, int& sample_rate, int& out_num_channels)
+{
+    SF_INFO sf_info{};
+    SNDFILE* file = sf_open(filename.data(), SFM_READ, &sf_info);
+    if (!file)
+    {
+        std::cerr << "Failed to open file for reading: " << filename << std::endl;
+        return false;
+    }
+
+    out_buffer.resize(sf_info.frames * sf_info.channels);
+
+    sf_count_t read = sf_readf_float(file, out_buffer.data(), sf_info.frames);
+    if (read != sf_info.frames)
+    {
+        std::cerr << "Failed to read all samples from file: " << filename << std::endl;
+        sf_close(file);
+        return false;
+    }
+
+    sf_close(file);
+
+    if (sample_rate != 0 && sf_info.samplerate != sample_rate)
+    {
+        const float ratio = static_cast<float>(sample_rate) / sf_info.samplerate;
+
+        const size_t output_size = static_cast<size_t>(sf_info.frames * ratio) + 1;
+        std::vector<float> resampled_buffer(output_size, 0);
+
+        SRC_DATA src_data;
+        src_data.data_in = out_buffer.data();
+        src_data.data_out = resampled_buffer.data();
+        src_data.input_frames = sf_info.frames;
+        src_data.output_frames = output_size;
+        src_data.src_ratio = ratio;
+
+        int error = src_simple(&src_data, SRC_SINC_BEST_QUALITY, sf_info.channels);
+
+        if (error)
+        {
+            std::cerr << "Failed to resample file" << std::endl;
+            return false;
+        }
+
+        if (src_data.input_frames_used != sf_info.frames)
+        {
+            std::cerr << "Not all input frames were used" << std::endl;
+        }
+
+        out_buffer = std::move(resampled_buffer);
+    }
+    else
+    {
+        sample_rate = sf_info.samplerate;
+    }
+
+    out_num_channels = sf_info.channels;
+    return true;
+}
 } // namespace audio_utils::audio_file
 
 void sndfile_manager_impl::set_sample_rate(int sample_rate)

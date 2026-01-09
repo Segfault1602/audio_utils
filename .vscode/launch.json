@@ -1,16 +1,17 @@
 {
     "configurations": [
         {
-            "name": "spectrogram test",
-            "type": "cppdbg",
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tests/debug/spectrogram_test",
-            "args": [],
+            "program": "${workspaceFolder}/build/debug/tests/audio_test",
+            "args": [
+                "FFTReal"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
+            "console": "integratedTerminal"
         },
         {
             "name": "audio_test",

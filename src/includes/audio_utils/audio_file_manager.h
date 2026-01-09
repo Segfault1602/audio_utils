@@ -3,11 +3,14 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace audio_utils::audio_file
 {
 void WriteWavFile(std::string_view filename, std::span<const float> buffer, int sample_rate);
-}
+
+bool ReadWavFile(std::string_view filename, std::vector<float>& out_buffer, int& sample_rate, int& out_num_channels);
+} // namespace audio_utils::audio_file
 
 class audio_file_manager
 {

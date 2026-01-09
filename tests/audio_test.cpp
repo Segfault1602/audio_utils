@@ -20,7 +20,7 @@ TEST_CASE("FFTReal")
     auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
 
     const uint32_t nfft = signal.size();
-    std::vector<std::complex<float>> signal_spectrum((nfft / 2) + 1);
+    std::vector<std::complex<float>> signal_spectrum((nfft / 2) + 1, {0.f, 0.f});
 
     audio_utils::FFT fft(nfft);
     fft.Forward(signal, signal_spectrum);
@@ -125,6 +125,40 @@ TEST_CASE("RealCepstrum")
     for (auto i = 0; i < 10; ++i)
     {
         REQUIRE_THAT(cepstrum[i], Catch::Matchers::WithinAbs(test_signal_cepstrum[i], 1e-5f));
+    }
+}
+
+TEST_CASE("Convolution")
+{
+    constexpr uint32_t kFFTSize = 1024;
+    constexpr uint32_t kFilterSize = 128;
+    constexpr uint32_t kSignalSize = 512;
+
+    static_assert(kFilterSize + kSignalSize - 1 <= kFFTSize, "Filter and signal size exceed FFT size");
+
+    audio_utils::FFT fft(kFFTSize);
+
+    // Impulse signal
+
+    std::vector<float> signal(kSignalSize, 0.f);
+    signal[0] = 1.f;
+
+    std::vector<float> filter(kFilterSize, 0.f);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<float> dist(0.0f, 1.0f);
+    for (uint32_t i = 0; i < kFilterSize; ++i)
+    {
+        filter[i] = dist(gen);
+    }
+
+    std::vector<float> result(kSignalSize + kFilterSize - 1, 0.f);
+
+    fft.Convolve(signal, filter, result);
+
+    for (uint32_t i = 0; i < kFilterSize; ++i)
+    {
+        REQUIRE_THAT(result[i], Catch::Matchers::WithinAbs(filter[i], 1e-6f));
     }
 }
 

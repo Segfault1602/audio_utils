@@ -3,7 +3,7 @@ add_library(audio_utils::audio_utils ALIAS audio_utils)
 
 target_sources(
     audio_utils
-    PRIVATE audio_analysis.cpp fft.cpp fft_utils.cpp
+    PRIVATE audio_analysis.cpp fft_utils.cpp
     PUBLIC FILE_SET
            "audio_utils_headers"
            TYPE
@@ -18,7 +18,16 @@ target_sources(
            ./includes/audio_utils/fft.h
            ./includes/audio_utils/ring_buffer.h)
 
-target_link_libraries(audio_utils PRIVATE Eigen3::Eigen pffft::pffft)
+target_link_libraries(audio_utils PRIVATE Eigen3::Eigen)
+
+if(IPP_FOUND)
+    message(STATUS "Using Intel IPP for FFT computations")
+    target_sources(audio_utils PRIVATE fft_ipp.cpp)
+    target_link_libraries(audio_utils PRIVATE IPP::ippcore IPP::ipps IPP::ippvm)
+else()
+    target_sources(audio_utils PRIVATE fft.cpp)
+    target_link_libraries(audio_utils PRIVATE pffft::pffft)
+endif()
 
 if(AUDIO_UTILS_USE_RTAUDIO)
     target_sources(audio_utils PRIVATE audio_manager.cpp rtaudio_impl.cpp test_tone.cpp)
