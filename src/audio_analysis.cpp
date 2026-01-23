@@ -1,11 +1,16 @@
 #include "audio_utils/audio_analysis.h"
 
-#include <vector>
-
+#include "audio_utils/array_math.h"
 #include "audio_utils/fft.h"
 #include "audio_utils/fft_utils.h"
 
 #include <Eigen/Core>
+
+#ifdef AUDIO_UTILS_USE_IPP
+#include <ipp.h>
+#endif
+
+#include <vector>
 
 namespace
 {
@@ -103,52 +108,79 @@ namespace audio_utils::analysis
 
 std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize)
 {
+#ifndef AUDIO_UTILS_USE_IPP
     const uint32_t kNFFT = FFT::NextSupportedFFTSize(2 * signal.size());
     std::vector<float> out(kNFFT, 0.0f);
 
     FFT fft(kNFFT);
 
-    std::vector<std::complex<float>> spectrum((kNFFT / 2) + 1, 0);
+    std::vector<std::complex<float>> spectrum(fft.GetSpectrumSize(), 0);
 
     fft.Forward(signal, spectrum);
 
-    for (size_t i = 0; i < spectrum.size(); ++i)
-    {
-        spectrum[i] = std::pow(std::abs(spectrum[i]), 2.f);
-    }
+    array_math::PowerSpectrum(spectrum, spectrum);
 
     fft.Inverse(spectrum, out);
 
     // Only keep the first half (positive lags)
     out.resize(signal.size());
 
+#else
+    IppEnum func_cfg = static_cast<IppEnum>(ippAlgAuto);
+    Ipp8u* work_buffer = nullptr;
+    int buffer_size = 0;
+    IppStatus status = ippsAutoCorrNormGetBufferSize(signal.size(), signal.size(), ipp32f, func_cfg, &buffer_size);
+
+    if (status != ippStsNoErr)
+    {
+        throw std::runtime_error("ippsAutoCorrNormGetBufferSize failed with error code " + std::to_string(status));
+    }
+
+    work_buffer = static_cast<Ipp8u*>(ippMalloc(buffer_size));
+    if (work_buffer == nullptr)
+    {
+        throw std::runtime_error("Failed to allocate IPP work buffer");
+    }
+
+    std::vector<float> out(signal.size(), 0.0f);
+    status = ippsAutoCorrNorm_32f(signal.data(), signal.size(), out.data(), out.size(), func_cfg, work_buffer);
+    ippFree(work_buffer);
+
+    if (status != ippStsNoErr)
+    {
+        throw std::runtime_error("ippsAutoCorrNorm_32f failed with error code " + std::to_string(status));
+    }
+#endif
+
     if (normalize)
     {
         float zero_lag = out[0];
-
-        for (auto& val : out)
-        {
-            val /= zero_lag;
-        }
+        array_math::Divide(out, zero_lag, out);
     }
 
     return out;
 }
 
-float SpectralFlatness(std::span<const float> spectrum)
+float SpectralFlatness(std::span<const float> power_spectrum)
 {
     float geo_mean = 1.0f;
     float arith_mean = 0.0f;
 
-    for (const auto& mag : spectrum)
+#ifndef AUDIO_UTILS_USE_IPP
+    for (const auto& power : power_spectrum)
     {
-        const float power = mag * mag;
         geo_mean += std::log(power + std::numeric_limits<float>::epsilon());
         arith_mean += power;
     }
 
-    geo_mean = std::exp(geo_mean / static_cast<float>(spectrum.size()));
-    arith_mean /= static_cast<float>(spectrum.size());
+    geo_mean = std::exp(geo_mean / static_cast<float>(power_spectrum.size()));
+    arith_mean /= static_cast<float>(power_spectrum.size());
+#else
+    std::vector<float> log_spectrum(power_spectrum.size(), 0.0f);
+    array_math::Ln(power_spectrum, log_spectrum);
+    geo_mean = std::exp(array_math::Mean(log_spectrum));
+    arith_mean = array_math::Mean(power_spectrum);
+#endif
 
     if (arith_mean == 0.0f)
     {
@@ -190,13 +222,10 @@ SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, boo
     {
         auto signal_span = signal.subspan(i * hop, info.window_size);
 
-        for (size_t j = 0; j < info.window_size; ++j)
-        {
-            frame[j] = signal_span[j] * window[j];
-        }
+        array_math::Multiply(signal_span, window, frame);
 
         auto spectrum_subspan = spec_span.subspan(i * num_bins, num_bins);
-        fft.ForwardAbs(frame, spectrum_subspan, false, false);
+        fft.ForwardMag(frame, spectrum_subspan, {FFTOutputType::Magnitude, false});
     }
 
     if (flip)
@@ -213,6 +242,7 @@ SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, boo
     return result_struct;
 }
 
+#if 1
 SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels, bool flip)
 {
     SpectrogramResult result = STFT(signal, info, false);
@@ -240,5 +270,62 @@ SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo&
 
     return result;
 }
+#else
 
+SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels, bool flip)
+{
+    const Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, info.fft_size, info.samplerate);
+
+    if (info.overlap >= info.fft_size)
+    {
+        throw std::invalid_argument("Overlap must be less than FFT size");
+    }
+
+    if (info.overlap >= info.window_size)
+    {
+        throw std::invalid_argument("Overlap must be less than window size");
+    }
+
+    const uint32_t hop = info.window_size - info.overlap;
+    const uint32_t num_frames = (signal.size() - info.overlap) / hop;
+
+    std::vector<float> result;
+    result.resize(num_frames * n_mels, -9999.999f);
+
+    std::vector<float> window(info.window_size);
+    GetWindow(info.window_type, window);
+
+    FFT fft(info.fft_size);
+
+    auto spec_span = std::span(result);
+
+    std::vector<float> frame(info.window_size);
+    std::vector<float> spectrum(fft.GetSpectrumSize());
+
+    for (auto i = 0; i < num_frames; ++i)
+    {
+        auto signal_span = signal.subspan(i * hop, info.window_size);
+        array_math::Multiply(signal_span, window, frame);
+
+        fft.ForwardMag(frame, spectrum, {FFTOutputType::Magnitude, false});
+        auto spectrum_subspan = spec_span.subspan(i * n_mels, n_mels);
+        Eigen::Map<Eigen::VectorXf> mel_spectrum(spectrum_subspan.data(), spectrum_subspan.size());
+        Eigen::Map<const Eigen::VectorXf> spec_vec(spectrum.data(), fft.GetSpectrumSize());
+        mel_spectrum = mel_weights * spec_vec;
+    }
+
+    if (flip)
+    {
+        Eigen::Map<Eigen::MatrixXf> spec_map(result.data(), n_mels, num_frames);
+        spec_map.colwise().reverseInPlace();
+    }
+
+    SpectrogramResult result_struct;
+    result_struct.data = std::move(result);
+    result_struct.num_bins = n_mels;
+    result_struct.num_frames = num_frames;
+
+    return result_struct;
+}
+#endif
 } // namespace audio_utils::analysis

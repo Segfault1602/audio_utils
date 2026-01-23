@@ -4,8 +4,8 @@
         "eigen3",
         "libsamplerate",
         "libsndfile",
+        "nanobench",
         "pffft",
-        "rtaudio",
-        "nanobench"
+        "rtaudio"
     ]
 }

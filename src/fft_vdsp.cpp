@@ -167,16 +167,16 @@ void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
                1, 2 * state_->numComplexSamples);
 }
 
-void FFT::ForwardAbs(std::span<const float> signal, std::span<float> abs_spectrum, bool to_db, bool normalize)
+void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, bool to_db, bool normalize)
 {
     if (signal.size() > state_->numRealSamples)
     {
         throw std::invalid_argument("Input size must be smaller or equal to FFT size");
     }
-    if (abs_spectrum.size() != state_->numComplexSamples)
+    if (mag_spectrum.size() != state_->numComplexSamples)
     {
         throw std::invalid_argument(std::format("Output spectrum size is incorrect: expected {}, got {}",
-                                                state_->numComplexSamples, abs_spectrum.size()));
+                                                state_->numComplexSamples, mag_spectrum.size()));
     }
 
     DSPSplitComplex splitComplex{};
@@ -198,21 +198,21 @@ void FFT::ForwardAbs(std::span<const float> signal, std::span<float> abs_spectru
     splitComplex.imagp[0] = 0.0f;
 #pragma clang unsafe_buffer_usage end
 
-    vDSP_zvabs(&splitComplex, 1, abs_spectrum.data(), 1, state_->numComplexSamples);
+    vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
 
     float scalar = 0.5f;
-    vDSP_vsmul(abs_spectrum.data(), 1, &scalar, abs_spectrum.data(), 1, state_->numComplexSamples);
+    vDSP_vsmul(mag_spectrum.data(), 1, &scalar, mag_spectrum.data(), 1, state_->numComplexSamples);
 
     if (normalize)
     {
-        float scale = 1.f / *std::ranges::max_element(abs_spectrum);
-        vDSP_vsmul(abs_spectrum.data(), 1, &scale, abs_spectrum.data(), 1, abs_spectrum.size());
+        float scale = 1.f / *std::ranges::max_element(mag_spectrum);
+        vDSP_vsmul(mag_spectrum.data(), 1, &scale, mag_spectrum.data(), 1, mag_spectrum.size());
     }
 
     if (to_db)
     {
         float zero_ref = 1.0f;
-        vDSP_vdbcon(abs_spectrum.data(), 1, &zero_ref, abs_spectrum.data(), 1, abs_spectrum.size(), 1);
+        vDSP_vdbcon(mag_spectrum.data(), 1, &zero_ref, mag_spectrum.data(), 1, mag_spectrum.size(), 1);
     }
 }
 

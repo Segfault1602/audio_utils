@@ -15,6 +15,18 @@ enum class FFTTransformType
     Complex
 };
 
+enum class FFTOutputType
+{
+    Magnitude,
+    Power
+};
+
+struct ForwardFFTOptions
+{
+    FFTOutputType output_type = FFTOutputType::Magnitude;
+    bool to_db = false;
+};
+
 class FFT
 {
   public:
@@ -23,8 +35,7 @@ class FFT
 
     void Forward(std::span<const float> signal, std::span<complex_t> spectrum);
 
-    void ForwardAbs(std::span<const float> signal, std::span<float> abs_spectrum, bool to_db = false,
-                    bool normalize = false);
+    void ForwardMag(std::span<const float> signal, std::span<float> spectrum, const ForwardFFTOptions& options);
 
     void Inverse(std::span<const complex_t> spectrum, std::span<float> signal);
 
@@ -33,6 +44,8 @@ class FFT
     void Convolve(std::span<const float> signal, std::span<const float> filter, std::span<float> result);
 
     uint32_t GetFFTSize() const;
+
+    uint32_t GetSpectrumSize() const;
 
     static uint32_t NextSupportedFFTSize(uint32_t min_size);
 

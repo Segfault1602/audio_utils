@@ -20,9 +20,9 @@ TEST_CASE("FFTReal")
     auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
 
     const uint32_t nfft = signal.size();
-    std::vector<std::complex<float>> signal_spectrum((nfft / 2) + 1, {0.f, 0.f});
 
     audio_utils::FFT fft(nfft);
+    std::vector<std::complex<float>> signal_spectrum(fft.GetSpectrumSize(), {0.f, 0.f});
     fft.Forward(signal, signal_spectrum);
 
     auto test_signal_spectrum = test_utils::LoadTestSignalSpectrum(test_utils::kTestSignalSpectrumFilename);
@@ -50,7 +50,7 @@ TEST_CASE("FFTReal")
     REQUIRE(nfft2 == 8192);
 
     audio_utils::FFT fft2(nfft2);
-    signal_spectrum.resize((nfft2 / 2) + 1, 0.f);
+    signal_spectrum.resize(fft2.GetSpectrumSize(), 0.f);
     fft2.Forward(signal, signal_spectrum);
 
     test_signal_spectrum = test_utils::LoadTestSignalSpectrum(test_utils::kTestSignalOversampledSpectrumFilename);
@@ -79,17 +79,17 @@ TEST_CASE("FFTReal")
     }
 }
 
-TEST_CASE("AbsFFT")
+TEST_CASE("FFTMagnitude")
 {
     auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
 
     const uint32_t nfft = signal.size();
-    std::vector<float> signal_spectrum((nfft / 2) + 1);
 
     audio_utils::FFT fft(nfft);
-    fft.ForwardAbs(signal, signal_spectrum, false, false);
+    std::vector<float> signal_spectrum(fft.GetSpectrumSize());
+    fft.ForwardMag(signal, signal_spectrum, {audio_utils::FFTOutputType::Magnitude, false});
 
-    REQUIRE(signal_spectrum.size() == (nfft / 2) + 1);
+    REQUIRE(signal_spectrum.size() == fft.GetSpectrumSize());
 
     auto test_signal_spectrum = test_utils::LoadTestSignalMetric(test_utils::kTestSignalAbsSpectrum);
     REQUIRE(test_signal_spectrum.size() >= signal_spectrum.size());
@@ -99,7 +99,7 @@ TEST_CASE("AbsFFT")
         REQUIRE_THAT(signal_spectrum[i], Catch::Matchers::WithinRel(test_signal_spectrum[i], 0.001f));
     }
 
-    fft.ForwardAbs(signal, signal_spectrum, true, false);
+    fft.ForwardMag(signal, signal_spectrum, {audio_utils::FFTOutputType::Magnitude, true});
     auto test_signal_db_spectrum = test_utils::LoadTestSignalMetric(test_utils::kTestSignalDbSpectrum);
     REQUIRE(test_signal_db_spectrum.size() >= signal_spectrum.size());
 
@@ -165,6 +165,7 @@ TEST_CASE("Convolution")
 TEST_CASE("Autocorrelation")
 {
     auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
+    // std::vector<float> signal = {1, 2, 3, 0, 0, 0, 0, 0};
 
     auto autocorr = audio_utils::analysis::Autocorrelation(signal, true);
 
@@ -173,6 +174,7 @@ TEST_CASE("Autocorrelation")
 
     for (auto i = 0; i < autocorr.size(); ++i)
     {
+        // std::cout << autocorr[i] << " ";
         REQUIRE_THAT(autocorr[i], Catch::Matchers::WithinAbs(test_signal_autocorr[i], 1e-5f));
     }
 }
@@ -216,7 +218,7 @@ TEST_CASE("Spectrogram")
 
 TEST_CASE("SpectralFlatness")
 {
-    constexpr uint32_t kSize = 4096;
+    constexpr uint32_t kSize = 8192;
     std::vector<float> noise(kSize, 0.f);
 
     // Fill the noise vector with random values
@@ -228,10 +230,12 @@ TEST_CASE("SpectralFlatness")
     }
 
     audio_utils::FFT fft(kSize);
-    std::vector<float> spectrum((kSize / 2) + 1, 0.f);
+    std::vector<float> spectrum(fft.GetSpectrumSize(), 0.f);
 
-    fft.ForwardAbs(noise, spectrum);
+    fft.ForwardMag(noise, spectrum, {audio_utils::FFTOutputType::Power, false});
 
     float flatness = audio_utils::analysis::SpectralFlatness(spectrum);
-    std::cout << "Spectral flatness: " << flatness << std::endl;
+
+    // Not a perfect test, but flatness of white noise should be around 0.56 based on Matlab implementation
+    REQUIRE_THAT(flatness, Catch::Matchers::WithinAbs(0.56f, 0.005f));
 }

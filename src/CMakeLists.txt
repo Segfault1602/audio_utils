@@ -3,7 +3,7 @@ add_library(audio_utils::audio_utils ALIAS audio_utils)
 
 target_sources(
     audio_utils
-    PRIVATE audio_analysis.cpp fft_utils.cpp
+    PRIVATE audio_analysis.cpp fft_utils.cpp array_math.cpp
     PUBLIC FILE_SET
            "audio_utils_headers"
            TYPE
@@ -16,13 +16,15 @@ target_sources(
            ./includes/audio_utils/audio_manager.h
            ./includes/audio_utils/fft_utils.h
            ./includes/audio_utils/fft.h
-           ./includes/audio_utils/ring_buffer.h)
+           ./includes/audio_utils/ring_buffer.h
+           ./includes/audio_utils/array_math.h)
 
 target_link_libraries(audio_utils PRIVATE Eigen3::Eigen)
 
 if(IPP_FOUND)
     message(STATUS "Using Intel IPP for FFT computations")
     target_sources(audio_utils PRIVATE fft_ipp.cpp)
+    target_compile_definitions(audio_utils PRIVATE AUDIO_UTILS_USE_IPP)
     target_link_libraries(audio_utils PRIVATE IPP::ippcore IPP::ipps IPP::ippvm)
 else()
     target_sources(audio_utils PRIVATE fft.cpp)

@@ -13,5 +13,7 @@ include(./fetch_deps.cmake)
 add_subdirectory(src)
 
 if(AUDIO_UTILS_BUILD_TESTS)
+    include(CTest)
+    enable_testing()
     add_subdirectory(tests)
 endif()

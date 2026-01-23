@@ -166,16 +166,16 @@ void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
     spectrum[0].imag(0.0f);
 }
 
-void FFT::ForwardAbs(std::span<const float> signal, std::span<float> abs_spectrum, bool to_db, bool normalize)
+void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, bool to_db, bool normalize)
 {
     if (signal.size() > state_->fft_size_)
     {
         throw std::invalid_argument("Input size must be smaller or equal to FFT size");
     }
-    if (abs_spectrum.size() != state_->complex_sample_count_)
+    if (mag_spectrum.size() != state_->complex_sample_count_)
     {
         throw std::invalid_argument(std::format("Output spectrum size is incorrect: expected {}, got {}",
-                                                state_->complex_sample_count_, abs_spectrum.size()));
+                                                state_->complex_sample_count_, mag_spectrum.size()));
     }
 
     std::ranges::copy(signal, state_->aligned_input_real_.begin());
@@ -185,24 +185,24 @@ void FFT::ForwardAbs(std::span<const float> signal, std::span<float> abs_spectru
                             reinterpret_cast<float*>(state_->aligned_spectrum_storage_), state_->work_buffer_storage_,
                             PFFFT_FORWARD);
 
-    abs_spectrum[0] = std::abs(state_->aligned_spectrum_[0].real()); // DC component
-    abs_spectrum[state_->complex_sample_count_ - 1] =
+    mag_spectrum[0] = std::abs(state_->aligned_spectrum_[0].real()); // DC component
+    mag_spectrum[state_->complex_sample_count_ - 1] =
         std::abs(state_->aligned_spectrum_[0].imag()); // Nyquist component
 
     for (auto i = 1; i < state_->aligned_spectrum_.size(); ++i)
     {
-        abs_spectrum[i] = std::abs(state_->aligned_spectrum_[i]);
+        mag_spectrum[i] = std::abs(state_->aligned_spectrum_[i]);
     }
 
     if (normalize)
     {
-        float max_val = *std::ranges::max_element(abs_spectrum);
-        std::ranges::transform(abs_spectrum, abs_spectrum.begin(), [max_val](float val) { return val / max_val; });
+        float max_val = *std::ranges::max_element(mag_spectrum);
+        std::ranges::transform(mag_spectrum, mag_spectrum.begin(), [max_val](float val) { return val / max_val; });
     }
 
     if (to_db)
     {
-        std::ranges::transform(abs_spectrum, abs_spectrum.begin(), [](float val) { return 20.0f * std::log10f(val); });
+        std::ranges::transform(mag_spectrum, mag_spectrum.begin(), [](float val) { return 20.0f * std::log10f(val); });
     }
 }
 
@@ -320,4 +320,8 @@ uint32_t FFT::GetFFTSize() const
     return state_->fft_size_;
 }
 
+uint32_t FFT::GetSpectrumSize() const
+{
+    return state_->complex_sample_count_;
+}
 } // namespace audio_utils

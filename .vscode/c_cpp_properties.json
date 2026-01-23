@@ -1,19 +1,21 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**",
-                "${workspaceFolder}/build/_deps/pffft-src"
+                "${workspaceFolder}/**"
             ],
-            "defines": [],
-            "macFrameworkPath": [
-                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
             ],
-            "compilerPath": "/usr/bin/clang",
+            "windowsSdkVersion": "10.0.26100.0",
             "cStandard": "c17",
-            "cppStandard": "c++20",
-            "compileCommands": "${workspaceFolder}/build/debug/compile_commands.json"
+            "cppStandard": "c++23",
+            "compileCommands": [
+                "${workspaceFolder}/build/ninja/compile_commands.json"
+            ]
         }
     ],
     "version": 4

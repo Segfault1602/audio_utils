@@ -25,10 +25,10 @@ xf_oversampled = fft(x, L*2);
 txt_friendly_spectrum = [real(xf_oversampled) imag(xf_oversampled)];
 writematrix(txt_friendly_spectrum, "test_signal_spectrum_8192.txt");
 
-abs_spectrum = abs(xf);
-writematrix(abs_spectrum, "test_signal_abs_spectrum.txt");
+mag_spectrum = abs(xf);
+writematrix(mag_spectrum, "test_signal_mag_spectrum.txt");
 
-db_spectrum = 20*log10(abs_spectrum);
+db_spectrum = 20*log10(mag_spectrum);
 writematrix(db_spectrum, "test_signal_db_spectrum.txt");
 
 audiowrite("test_signal.wav", x, FS, BitsPerSample=32)

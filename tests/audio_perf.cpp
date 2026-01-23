@@ -13,6 +13,26 @@
 using namespace ankerl;
 using namespace std::chrono_literals;
 
+namespace
+{
+std::vector<float> GenerateRandomSignal(uint32_t size)
+{
+    std::vector<float> signal;
+    signal.reserve(size);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<float> dist(0.0f, 1.0f);
+
+    for (uint32_t i = 0; i < size; ++i)
+    {
+        signal.push_back(dist(gen));
+    }
+
+    return signal;
+}
+} // namespace
+
 TEST_CASE("FFT")
 {
     nanobench::Bench bench;
@@ -26,24 +46,19 @@ TEST_CASE("FFT")
 
     for (auto nfft : kNFFTSizes)
     {
-        std::vector<float> test_signal;
-        test_signal.reserve(nfft);
+        std::vector<float> test_signal = GenerateRandomSignal(nfft);
 
         const uint32_t supported_fft_size = audio_utils::FFT::NextSupportedFFTSize(nfft);
         if (supported_fft_size != nfft)
             continue;
 
         audio_utils::FFT fft(nfft);
-        for (uint32_t i = 0; i < nfft; ++i)
-        {
-            test_signal.push_back(dist(gen));
-        }
 
         bench.minEpochIterations(10000000 / nfft);
         bench.batch(nfft);
         bench.unit("samples");
 
-        std::vector<std::complex<float>> test_spectrum((nfft / 2) + 1);
+        std::vector<std::complex<float>> test_spectrum(fft.GetSpectrumSize());
         std::string title = std::format("FFT (NFFT={})", nfft);
         bench.run(title, [&] {
             fft.Forward(test_signal, test_spectrum);
@@ -52,10 +67,10 @@ TEST_CASE("FFT")
     }
 }
 
-TEST_CASE("ForwardAbs")
+TEST_CASE("ForwardMag")
 {
     nanobench::Bench bench;
-    bench.title("FFT Perf - ForwardAbs");
+    bench.title("FFT Perf - ForwardMag");
     bench.timeUnit(1ns, "ns");
 
     constexpr std::array kNFFTSizes = {256u, 512u, 1024u, 2048u, 4096u, 8192u, 16384u, 32768u, 44100u, 48000u};
@@ -65,27 +80,21 @@ TEST_CASE("ForwardAbs")
 
     for (auto nfft : kNFFTSizes)
     {
-        std::vector<float> test_signal;
-        test_signal.reserve(nfft);
-
         const uint32_t supported_fft_size = audio_utils::FFT::NextSupportedFFTSize(nfft);
         if (supported_fft_size != nfft)
             continue;
 
         audio_utils::FFT fft(nfft);
-        for (uint32_t i = 0; i < nfft; ++i)
-        {
-            test_signal.push_back(dist(gen));
-        }
+        std::vector<float> test_signal = GenerateRandomSignal(nfft);
 
         bench.minEpochIterations(5000000 / nfft);
         bench.batch(nfft);
         bench.unit("samples");
 
-        std::vector<float> test_spectrum((nfft / 2) + 1);
+        std::vector<float> test_spectrum(fft.GetSpectrumSize());
         std::string title = std::format("FFT (NFFT={})", nfft);
         bench.run(title, [&] {
-            fft.ForwardAbs(test_signal, test_spectrum, true);
+            fft.ForwardMag(test_signal, test_spectrum, {audio_utils::FFTOutputType::Magnitude, false});
             nanobench::doNotOptimizeAway(test_spectrum);
         });
     }
@@ -126,39 +135,34 @@ TEST_CASE("Cepstrum")
 
 TEST_CASE("Convolution")
 {
-    constexpr uint32_t kFilterSize = 4096;
-    constexpr uint32_t kSignalSize = 48000;
-
-    const uint32_t kFFTSize = audio_utils::FFT::NextSupportedFFTSize(kFilterSize + kSignalSize - 1);
-
-    audio_utils::FFT fft(kFFTSize);
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-
-    std::vector<float> signal(kSignalSize, 0.f);
-    for (uint32_t i = 0; i < kSignalSize; ++i)
-    {
-        signal[i] = dist(gen);
-    }
-
-    std::vector<float> filter(kFilterSize, 0.f);
-    for (uint32_t i = 0; i < kFilterSize; ++i)
-    {
-        filter[i] = dist(gen);
-    }
-
-    std::vector<float> result(kSignalSize + kFilterSize - 1, 0.f);
+    constexpr uint32_t kSignalSize = 32768;
 
     nanobench::Bench bench;
     bench.title("Convolution Perf");
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(500);
+    bench.minEpochIterations(1000);
 
-    bench.run("Convolution", [&] {
-        fft.Convolve(signal, filter, result);
-        nanobench::doNotOptimizeAway(result);
-    });
+    for (uint32_t filter_size = 32; filter_size <= 8192; filter_size *= 2)
+    {
+        const uint32_t kFFTSize = audio_utils::FFT::NextSupportedFFTSize(filter_size + kSignalSize - 1);
+
+        audio_utils::FFT fft(kFFTSize);
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<float> dist(0.0f, 1.0f);
+
+        std::vector<float> signal = GenerateRandomSignal(kSignalSize);
+
+        std::vector<float> filter = GenerateRandomSignal(filter_size);
+
+        std::vector<float> result(kSignalSize + filter_size - 1, 0.f);
+
+        auto title = std::format("Convolution (FilterSize={})", filter_size);
+        bench.run(title, [&] {
+            fft.Convolve(signal, filter, result);
+            nanobench::doNotOptimizeAway(result);
+        });
+    }
 }
 
 TEST_CASE("Spectrogram")
@@ -200,4 +204,73 @@ TEST_CASE("Spectrogram")
             nanobench::doNotOptimizeAway(spectrogram);
         });
     }
+}
+
+TEST_CASE("MelSpectrogram")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+
+    audio_utils::analysis::SpectrogramInfo spec_info{.fft_size = 2048,
+                                                     .overlap = 512,
+                                                     .window_size = 2048,
+                                                     .samplerate = test_utils::kSampleRate,
+                                                     .window_type = audio_utils::FFTWindowType::Hann};
+
+    constexpr uint32_t kNumMelBands = 32;
+
+    nanobench::Bench bench;
+    bench.title("MelSpectrogram Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+
+    std::string title = std::format("MelSpectrogram (FFTSize={}, WindowSize={}, Overlap={}, MelBands={})",
+                                    spec_info.fft_size, spec_info.window_size, spec_info.overlap, kNumMelBands);
+
+    bench.run(title, [&] {
+        auto mel_spectrogram = audio_utils::analysis::MelSpectrogram(signal, spec_info, kNumMelBands);
+        nanobench::doNotOptimizeAway(mel_spectrogram);
+    });
+}
+
+TEST_CASE("SpectralFlatness")
+{
+    auto signal = GenerateRandomSignal(48000);
+
+    uint32_t nfft = audio_utils::FFT::NextSupportedFFTSize(signal.size());
+    audio_utils::FFT fft(nfft);
+    std::vector<float> spectrum(fft.GetSpectrumSize());
+
+    fft.ForwardMag(signal, spectrum, {audio_utils::FFTOutputType::Power, false});
+
+    nanobench::Bench bench;
+    bench.title("Spectral Flatness Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(100);
+
+    std::string title = std::format("Spectral Flatness (NFFT={})", nfft);
+
+    bench.run(title, [&] {
+        float flatness = audio_utils::analysis::SpectralFlatness(spectrum);
+        nanobench::doNotOptimizeAway(flatness);
+    });
+}
+
+TEST_CASE("Autocorrelation")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
+
+    nanobench::Bench bench;
+    bench.title("Autocorrelation Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+
+    bench.run("Autocorrelation", [&] {
+        auto autocorr = audio_utils::analysis::Autocorrelation(signal, false);
+        nanobench::doNotOptimizeAway(autocorr);
+    });
+
+    bench.run("Autocorrelation (normalized)", [&] {
+        auto autocorr = audio_utils::analysis::Autocorrelation(signal, true);
+        nanobench::doNotOptimizeAway(autocorr);
+    });
 }

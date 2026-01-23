@@ -19,7 +19,7 @@ constexpr std::string_view kImpulseResponseFilename = "tests/ir_1.wav";
 constexpr std::string_view kTestSignalSpectrumFilename = "tests/test_signal_spectrum_4096.txt";
 constexpr std::string_view kTestSignalOversampledSpectrumFilename = "tests/test_signal_spectrum_8192.txt";
 
-constexpr std::string_view kTestSignalAbsSpectrum = "tests/test_signal_abs_spectrum.txt";
+constexpr std::string_view kTestSignalAbsSpectrum = "tests/test_signal_mag_spectrum.txt";
 constexpr std::string_view kTestSignalDbSpectrum = "tests/test_signal_db_spectrum.txt";
 constexpr std::string_view kTestSignalCepstrum = "tests/test_signal_cepstrum.txt";
 constexpr std::string_view kTestSignalAutocorr = "tests/test_signal_autocorr.txt";
