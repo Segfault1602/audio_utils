@@ -62,3 +62,9 @@ sdb = (abs(s));
 imagesc(sdb);
 
 writematrix(sdb, "test_signal_spectrogram.txt");
+
+
+addpath(genpath("../../../../FDNToolbox"));
+[ir, fs] = audioread("ir_1.wav");
+edc = EDC(ir);
+writematrix(edc, "test_signal_edc.txt");

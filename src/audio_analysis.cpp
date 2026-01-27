@@ -10,10 +10,38 @@
 #include <ipp.h>
 #endif
 
+#include <format>
+#include <iterator>
+#include <numeric>
+#include <ranges>
 #include <vector>
 
 namespace
 {
+
+void ValidateSTFTOptions(const audio_utils::analysis::STFTOptions& options)
+{
+    const uint32_t fft_size = audio_utils::FFT::NextSupportedFFTSize(options.fft_size);
+    if (options.fft_size != fft_size)
+    {
+        throw std::invalid_argument(
+            std::format("FFT size {} is not supported. Next supported size is {}", options.fft_size, fft_size));
+    }
+
+    if (options.window_size == 0 || options.window_size > options.fft_size)
+    {
+        throw std::invalid_argument(
+            std::format("Window size ({}) must be greater than zero and less than or equal to FFT size ({})",
+                        options.window_size, options.fft_size));
+    }
+
+    if (options.overlap >= options.window_size)
+    {
+        throw std::invalid_argument(
+            std::format("Overlap ({}) must be less than window size ({})", options.overlap, options.window_size));
+    }
+}
+
 float HzToMel(float hz)
 {
     constexpr float lin_step = 200.f / 3.f;
@@ -101,6 +129,7 @@ Eigen::MatrixXf GetMelFilter(size_t n_mels, size_t nfft, size_t sample_rate)
 
     return filter_bank.transpose();
 }
+
 } // namespace
 
 namespace audio_utils::analysis
@@ -161,6 +190,79 @@ std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize
     return out;
 }
 
+std::span<float> TrimSilence(std::span<float> signal, float threshold)
+{
+    if (signal.empty())
+    {
+        return {};
+    }
+
+    // Discard silence at the beginning of impulse response
+    const float max_val = array_math::MaxAbs(signal);
+
+    const float target = threshold * std::abs(max_val);
+
+    for (auto i = 0u; i < signal.size(); ++i)
+    {
+        if (std::abs(signal[i]) >= target)
+        {
+            return signal.subspan(i);
+        }
+    }
+    return signal;
+    // auto it_start = std::ranges::find_if(
+    //     signal, [threshold = threshold * std::abs(max_val)](float sample) { return std::abs(sample) >= threshold; });
+
+    // if (it_start != signal.end())
+    // {
+    //     return signal.subspan(std::distance(signal.begin(), it_start));
+    // }
+    // else
+    // {
+    //     return signal;
+    // }
+}
+
+std::vector<float> EnergyDecayCurve(std::span<const float> signal, bool to_db)
+{
+    if (signal.empty())
+    {
+        return {};
+    }
+
+    std::ranges::reverse_view trimmed_signal_reversed{signal};
+    auto s = trimmed_signal_reversed | std::views::transform([](float x) { return x * x; });
+
+    // Calculate the energy decay curve
+    std::vector<float> decay_curve(signal.size(), 0.0f);
+
+    std::ranges::reverse_view decay_curve_reversed{decay_curve};
+
+    std::partial_sum(s.begin(), s.end(), decay_curve_reversed.begin());
+
+    if (to_db)
+    {
+        array_math::ToDb(decay_curve, 10.0f);
+    }
+
+    return decay_curve;
+}
+
+std::vector<float> Convolve(std::span<const float> signal, std::span<const float> kernel)
+{
+    const uint32_t conv_size = signal.size() + kernel.size() - 1;
+    const uint32_t fft_size = FFT::NextSupportedFFTSize(static_cast<uint32_t>(conv_size));
+
+    FFT fft(fft_size);
+    std::vector<float> result(fft_size, 0.0f);
+    fft.Convolve(signal, kernel, result);
+
+    // Depending on the FFT implementation, the result may be larger than what would usually be expected from
+    // a convolution. Trim to the expected size.
+    result.resize(conv_size);
+    return result;
+}
+
 float SpectralFlatness(std::span<const float> power_spectrum)
 {
     float geo_mean = 1.0f;
@@ -190,37 +292,29 @@ float SpectralFlatness(std::span<const float> power_spectrum)
     return geo_mean / arith_mean;
 }
 
-SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, bool flip)
+STFTResult STFT(std::span<const float> signal, STFTOptions& options, bool flip)
 {
-    if (info.overlap >= info.fft_size)
-    {
-        throw std::invalid_argument("Overlap must be less than FFT size");
-    }
+    ValidateSTFTOptions(options);
 
-    if (info.overlap >= info.window_size)
-    {
-        throw std::invalid_argument("Overlap must be less than window size");
-    }
-
-    const uint32_t hop = info.window_size - info.overlap;
-    const uint32_t num_frames = (signal.size() - info.overlap) / hop;
-    const uint32_t num_bins = info.fft_size / 2 + 1;
+    const uint32_t hop = options.window_size - options.overlap;
+    const uint32_t num_frames = (signal.size() - options.overlap) / hop;
+    const uint32_t num_bins = options.fft_size / 2 + 1;
 
     std::vector<float> result;
     result.resize(num_frames * num_bins, -9999.999f);
 
-    std::vector<float> window(info.window_size);
-    GetWindow(info.window_type, window);
+    std::vector<float> window(options.window_size);
+    GetWindow(options.window_type, window);
 
-    FFT fft(info.fft_size);
+    FFT fft(options.fft_size);
 
     auto spec_span = std::span(result);
 
-    std::vector<float> frame(info.window_size);
+    std::vector<float> frame(options.window_size);
 
     for (auto i = 0; i < num_frames; ++i)
     {
-        auto signal_span = signal.subspan(i * hop, info.window_size);
+        auto signal_span = signal.subspan(i * hop, options.window_size);
 
         array_math::Multiply(signal_span, window, frame);
 
@@ -234,7 +328,7 @@ SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, boo
         spec_map.colwise().reverseInPlace();
     }
 
-    SpectrogramResult result_struct;
+    STFTResult result_struct;
     result_struct.data = std::move(result);
     result_struct.num_bins = num_bins;
     result_struct.num_frames = num_frames;
@@ -243,11 +337,18 @@ SpectrogramResult STFT(std::span<const float> signal, SpectrogramInfo& info, boo
 }
 
 #if 1
-SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels, bool flip)
+STFTResult MelSpectrogram(std::span<const float> signal, STFTOptions& options, size_t n_mels, bool flip)
 {
-    SpectrogramResult result = STFT(signal, info, false);
+    ValidateSTFTOptions(options);
 
-    Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, info.fft_size, info.samplerate);
+    if (options.samplerate == 0)
+    {
+        throw std::invalid_argument("Samplerate must be set in STFTOptions for MelSpectrogram computation");
+    }
+
+    STFTResult result = STFT(signal, options, false);
+
+    Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, options.fft_size, options.samplerate);
 
     std::vector<float> mel_data(result.num_frames * n_mels, -50.0f); // Initialize with -50 dB
 
@@ -272,39 +373,39 @@ SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo&
 }
 #else
 
-SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo& info, size_t n_mels, bool flip)
+STFTResult MelSpectrogram(std::span<const float> signal, STFTOptions& options, size_t n_mels, bool flip)
 {
-    const Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, info.fft_size, info.samplerate);
+    const Eigen::MatrixXf mel_weights = GetMelFilter(n_mels, options.fft_size, options.samplerate);
 
-    if (info.overlap >= info.fft_size)
+    if (options.overlap >= options.fft_size)
     {
         throw std::invalid_argument("Overlap must be less than FFT size");
     }
 
-    if (info.overlap >= info.window_size)
+    if (options.overlap >= options.window_size)
     {
         throw std::invalid_argument("Overlap must be less than window size");
     }
 
-    const uint32_t hop = info.window_size - info.overlap;
-    const uint32_t num_frames = (signal.size() - info.overlap) / hop;
+    const uint32_t hop = options.window_size - options.overlap;
+    const uint32_t num_frames = (signal.size() - options.overlap) / hop;
 
     std::vector<float> result;
     result.resize(num_frames * n_mels, -9999.999f);
 
-    std::vector<float> window(info.window_size);
-    GetWindow(info.window_type, window);
+    std::vector<float> window(options.window_size);
+    GetWindow(options.window_type, window);
 
-    FFT fft(info.fft_size);
+    FFT fft(options.fft_size);
 
     auto spec_span = std::span(result);
 
-    std::vector<float> frame(info.window_size);
+    std::vector<float> frame(options.window_size);
     std::vector<float> spectrum(fft.GetSpectrumSize());
 
     for (auto i = 0; i < num_frames; ++i)
     {
-        auto signal_span = signal.subspan(i * hop, info.window_size);
+        auto signal_span = signal.subspan(i * hop, options.window_size);
         array_math::Multiply(signal_span, window, frame);
 
         fft.ForwardMag(frame, spectrum, {FFTOutputType::Magnitude, false});
@@ -320,7 +421,7 @@ SpectrogramResult MelSpectrogram(std::span<const float> signal, SpectrogramInfo&
         spec_map.colwise().reverseInPlace();
     }
 
-    SpectrogramResult result_struct;
+    STFTResult result_struct;
     result_struct.data = std::move(result);
     result_struct.num_bins = n_mels;
     result_struct.num_frames = num_frames;

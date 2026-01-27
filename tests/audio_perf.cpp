@@ -167,23 +167,23 @@ TEST_CASE("Convolution")
 
 TEST_CASE("Spectrogram")
 {
-    constexpr audio_utils::analysis::SpectrogramInfo info1{.fft_size = 1024,
-                                                           .overlap = 256,
-                                                           .window_size = 1024,
-                                                           .samplerate = test_utils::kSampleRate,
-                                                           .window_type = audio_utils::FFTWindowType::Hann};
+    constexpr audio_utils::analysis::STFTOptions info1{.fft_size = 1024,
+                                                       .overlap = 256,
+                                                       .window_size = 1024,
+                                                       .window_type = audio_utils::FFTWindowType::Hann,
+                                                       .samplerate = test_utils::kSampleRate};
 
-    constexpr audio_utils::analysis::SpectrogramInfo info2{.fft_size = 2048,
-                                                           .overlap = 512,
-                                                           .window_size = 2048,
-                                                           .samplerate = test_utils::kSampleRate,
-                                                           .window_type = audio_utils::FFTWindowType::Hann};
+    constexpr audio_utils::analysis::STFTOptions info2{.fft_size = 2048,
+                                                       .overlap = 512,
+                                                       .window_size = 2048,
+                                                       .window_type = audio_utils::FFTWindowType::Hann,
+                                                       .samplerate = test_utils::kSampleRate};
 
-    constexpr audio_utils::analysis::SpectrogramInfo info3{.fft_size = 8192,
-                                                           .overlap = 2048,
-                                                           .window_size = 8192,
-                                                           .samplerate = test_utils::kSampleRate,
-                                                           .window_type = audio_utils::FFTWindowType::Hann};
+    constexpr audio_utils::analysis::STFTOptions info3{.fft_size = 8192,
+                                                       .overlap = 2048,
+                                                       .window_size = 8192,
+                                                       .window_type = audio_utils::FFTWindowType::Hann,
+                                                       .samplerate = test_utils::kSampleRate};
 
     constexpr std::array kSpectrogramInfos = {info1, info2, info3};
 
@@ -210,11 +210,11 @@ TEST_CASE("MelSpectrogram")
 {
     auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
 
-    audio_utils::analysis::SpectrogramInfo spec_info{.fft_size = 2048,
-                                                     .overlap = 512,
-                                                     .window_size = 2048,
-                                                     .samplerate = test_utils::kSampleRate,
-                                                     .window_type = audio_utils::FFTWindowType::Hann};
+    audio_utils::analysis::STFTOptions spec_info{.fft_size = 2048,
+                                                 .overlap = 512,
+                                                 .window_size = 2048,
+                                                 .window_type = audio_utils::FFTWindowType::Hann,
+                                                 .samplerate = test_utils::kSampleRate};
 
     constexpr uint32_t kNumMelBands = 32;
 
@@ -272,5 +272,24 @@ TEST_CASE("Autocorrelation")
     bench.run("Autocorrelation (normalized)", [&] {
         auto autocorr = audio_utils::analysis::Autocorrelation(signal, true);
         nanobench::doNotOptimizeAway(autocorr);
+    });
+}
+
+TEST_CASE("EnergyDecayCurve")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+
+    nanobench::Bench bench;
+    bench.title("Energy Decay Curve Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+    bench.run("Energy Decay Curve", [&] {
+        auto edc = audio_utils::analysis::EnergyDecayCurve(signal, false);
+        nanobench::doNotOptimizeAway(edc);
+    });
+
+    bench.run("TrimSilence", [&] {
+        auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
+        nanobench::doNotOptimizeAway(trimmed_signal);
     });
 }

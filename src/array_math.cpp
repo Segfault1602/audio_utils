@@ -4,6 +4,7 @@
 #include <ipp.h>
 #endif
 
+#include <algorithm>
 #include <numeric>
 #include <span>
 #include <stdexcept>
@@ -94,6 +95,23 @@ float Mean(std::span<const float> data)
 
     return mean;
 #endif
+}
+
+float MaxAbs(std::span<const float> data)
+{
+#ifndef AUDIO_UTILS_USE_IPP
+    const auto [min, max] = std::ranges::minmax_element(data.begin(), data.end());
+    float max_val = std::max(std::abs(*min), std::abs(*max));
+#else
+    float max_val = 0.f;
+    IppStatus status = ippsMaxAbs_32f(data.data(), static_cast<int>(data.size()), &max_val);
+    if (status != ippStsNoErr)
+    {
+        throw std::runtime_error("ippsMaxAbs_32f failed with error code " + std::to_string(status));
+    }
+#endif
+
+    return max_val;
 }
 
 void Magnitude(std::span<const std::complex<float>> spectrum, std::span<float> result)

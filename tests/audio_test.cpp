@@ -183,7 +183,7 @@ TEST_CASE("Spectrogram")
 {
     auto signal = test_utils::LoadTestSignal(test_utils::kTestSignalFilename);
 
-    audio_utils::analysis::SpectrogramInfo info{};
+    audio_utils::analysis::STFTOptions info{};
     info.fft_size = 256;
     info.window_size = 128;
     info.overlap = 127;
@@ -238,4 +238,28 @@ TEST_CASE("SpectralFlatness")
 
     // Not a perfect test, but flatness of white noise should be around 0.56 based on Matlab implementation
     REQUIRE_THAT(flatness, Catch::Matchers::WithinAbs(0.56f, 0.005f));
+}
+
+TEST_CASE("EnergyDecayCurve")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+
+    // Test trim silence with dummy data
+    std::vector<float> dummy_signal = {0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f};
+    constexpr std::array<float, 4> expected_trimmed_signal = {0.5f, 1.0f, 0.5f, 0.0f};
+    auto trimmed_signal = audio_utils::analysis::TrimSilence(std::span(dummy_signal), 0.5f);
+    for (size_t i = 0; i < expected_trimmed_signal.size(); ++i)
+    {
+        REQUIRE_THAT(trimmed_signal[i], Catch::Matchers::WithinAbs(expected_trimmed_signal[i], 1e-6f));
+    }
+
+    auto edc = audio_utils::analysis::EnergyDecayCurve(audio_utils::analysis::TrimSilence(signal, 0.5f), true);
+
+    auto test_signal_edc = test_utils::LoadTestSignalMetric("tests/test_signal_edc.txt");
+    REQUIRE(test_signal_edc.size() == edc.size());
+
+    for (auto i = 0; i < edc.size(); ++i)
+    {
+        REQUIRE_THAT(edc[i], Catch::Matchers::WithinRel(test_signal_edc[i]));
+    }
 }

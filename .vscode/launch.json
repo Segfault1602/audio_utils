@@ -4,8 +4,10 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/ninja/tests/debug/audio_test",
-            "args": [],
+            "program": "${workspaceFolder}/build/ninja/tests/RelWithDebInfo/audio_test",
+            "args": [
+                "EnergyDecayCurve"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

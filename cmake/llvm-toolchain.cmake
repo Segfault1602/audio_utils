@@ -23,6 +23,7 @@ set(AUDIO_UTILS_CXX_COMPILE_OPTIONS
     -Wno-sign-compare
     -Wunsafe-buffer-usage
     -fno-omit-frame-pointer
+    -march=native
     ${AUDIO_UTILS_SANITIZER})
 
 set(AUDIO_UTILS_LINK_OPTIONS ${AUDIO_UTILS_SANITIZER})

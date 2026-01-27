@@ -15,6 +15,8 @@ void Ln(std::span<const float> data, std::span<float> result);
 
 float Mean(std::span<const float> data);
 
+float MaxAbs(std::span<const float> data);
+
 void Magnitude(std::span<const std::complex<float>> spectrum, std::span<float> result);
 
 void PowerSpectrum(std::span<const std::complex<float>> spectrum, std::span<float> result);
