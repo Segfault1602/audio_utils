@@ -6,22 +6,24 @@
 #include <cassert>
 #include <complex>
 #include <format>
-#include <mach/memory_object_types.h>
+#include <iostream>
 #include <span>
+#include <vector>
 
 namespace
 {
 
 float* AllocateBuffer(size_t size)
 {
+    constexpr size_t kAlignment = 64;
     size_t alignedSizeBytes = size * sizeof(float);
-    if (alignedSizeBytes % 64 != 0)
+    if (alignedSizeBytes % kAlignment != 0)
     {
-        alignedSizeBytes += 64 - (alignedSizeBytes % 64);
+        alignedSizeBytes += kAlignment - (alignedSizeBytes % kAlignment);
     }
 
 #pragma clang unsafe_buffer_usage begin
-    float* buf = (float*)aligned_alloc(64, alignedSizeBytes);
+    float* buf = (float*)aligned_alloc(kAlignment, alignedSizeBytes);
     memset(buf, 0, alignedSizeBytes);
 #pragma clang unsafe_buffer_usage end
     return buf;
@@ -167,7 +169,7 @@ void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
                1, 2 * state_->numComplexSamples);
 }
 
-void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, bool to_db, bool normalize)
+void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, const ForwardFFTOptions& options)
 {
     if (signal.size() > state_->numRealSamples)
     {
@@ -198,21 +200,24 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
     splitComplex.imagp[0] = 0.0f;
 #pragma clang unsafe_buffer_usage end
 
-    vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
+    if (options.output_type == FFTOutputType::Magnitude)
+    {
+        vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
+    }
+    else if (options.output_type == FFTOutputType::Power)
+    {
+        vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
+        vDSP_vsq(mag_spectrum.data(), 1, mag_spectrum.data(), 1, state_->numComplexSamples);
+    }
 
     float scalar = 0.5f;
     vDSP_vsmul(mag_spectrum.data(), 1, &scalar, mag_spectrum.data(), 1, state_->numComplexSamples);
 
-    if (normalize)
-    {
-        float scale = 1.f / *std::ranges::max_element(mag_spectrum);
-        vDSP_vsmul(mag_spectrum.data(), 1, &scale, mag_spectrum.data(), 1, mag_spectrum.size());
-    }
-
-    if (to_db)
+    if (options.to_db)
     {
         float zero_ref = 1.0f;
-        vDSP_vdbcon(mag_spectrum.data(), 1, &zero_ref, mag_spectrum.data(), 1, mag_spectrum.size(), 1);
+        vDSP_vdbcon(mag_spectrum.data(), 1, &zero_ref, mag_spectrum.data(), 1, mag_spectrum.size(),
+                    options.output_type == FFTOutputType::Magnitude ? 1 : 0);
     }
 }
 
@@ -295,6 +300,90 @@ void FFT::RealCepstrum(std::span<const float> signal, std::span<float> cepstrum)
 
     float scalar = 1.0f / state_->numRealSamples;
     vDSP_vsmul(cepstrum.data(), 1, &scalar, cepstrum.data(), 1, state_->numRealSamples);
+}
+
+void FFT::Convolve(std::span<const float> signal, std::span<const float> filter, std::span<float> result)
+{
+    if (signal.size() + filter.size() - 1 > result.size())
+    {
+        throw std::invalid_argument("Result size must be equal to signal size + filter size - 1");
+    }
+
+    const uint32_t conv_size = signal.size() + filter.size() - 1;
+
+    if (conv_size > state_->numRealSamples)
+    {
+        throw std::invalid_argument("Convolution size must be smaller or equal to FFT size");
+    }
+
+#pragma clang unsafe_buffer_usage begin
+    float* aligned_signal = AllocateBuffer(state_->numRealSamples);
+    float* aligned_filter = AllocateBuffer(state_->numRealSamples);
+    float* aligned_convolution = AllocateBuffer(state_->numRealSamples);
+    std::span<float> aligned_signal_span(aligned_signal, state_->numRealSamples);
+    std::span<float> aligned_filter_span(aligned_filter, state_->numRealSamples);
+    std::span<float> aligned_convolution_span(aligned_convolution, state_->numRealSamples);
+#pragma clang unsafe_buffer_usage end
+
+    std::ranges::copy(signal, aligned_signal_span.begin());
+    std::ranges::fill(aligned_signal_span.subspan(signal.size()), 0.0f); // Zero-pad if necessary
+
+    std::ranges::copy(filter, aligned_filter_span.begin());
+    std::ranges::fill(aligned_filter_span.subspan(filter.size()), 0.0f); // Zero-pad if necessary
+
+    // Fill the convolution buffer with zeros
+    std::ranges::fill(aligned_convolution_span, 0.0f);
+
+    DSPSplitComplex signalSplit{};
+    signalSplit.realp = AllocateBuffer(state_->numComplexSamples);
+    signalSplit.imagp = AllocateBuffer(state_->numComplexSamples);
+
+    DSPSplitComplex filterSplit{};
+    filterSplit.realp = AllocateBuffer(state_->numComplexSamples);
+    filterSplit.imagp = AllocateBuffer(state_->numComplexSamples);
+
+    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(aligned_signal), 2, &signalSplit, 1, state_->numRealSamples / 2);
+    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(aligned_filter), 2, &filterSplit, 1, state_->numRealSamples / 2);
+
+    vDSP_DFT_Execute(state_->mForwardSetup, signalSplit.realp, signalSplit.imagp, signalSplit.realp, signalSplit.imagp);
+    vDSP_DFT_Execute(state_->mForwardSetup, filterSplit.realp, filterSplit.imagp, filterSplit.realp, filterSplit.imagp);
+
+#pragma clang unsafe_buffer_usage begin
+    float nyquist = signalSplit.imagp[0] * filterSplit.imagp[0];
+    signalSplit.imagp[0] = 0.0f;
+    filterSplit.imagp[0] = 0.0f;
+
+    vDSP_zvmul(&signalSplit, 1, &filterSplit, 1, &signalSplit, 1, state_->numRealSamples / 2, 1);
+
+    signalSplit.imagp[0] = nyquist;
+#pragma clang unsafe_buffer_usage end
+
+    vDSP_DFT_Execute(state_->mInverseSetup, signalSplit.realp, signalSplit.imagp, signalSplit.realp, signalSplit.imagp);
+
+    vDSP_ztoc(&signalSplit, 1, reinterpret_cast<DSPComplex*>(aligned_convolution), 2, state_->numRealSamples / 2);
+
+    float scalar = 1.0f / (4 * state_->numRealSamples);
+    vDSP_vsmul(aligned_convolution, 1, &scalar, aligned_convolution, 1, state_->numRealSamples);
+    std::ranges::copy(aligned_convolution_span.subspan(0, result.size()), result.begin());
+
+    FreeBuffer(aligned_signal);
+    FreeBuffer(aligned_filter);
+    FreeBuffer(aligned_convolution);
+
+    FreeBuffer(signalSplit.realp);
+    FreeBuffer(signalSplit.imagp);
+    FreeBuffer(filterSplit.realp);
+    FreeBuffer(filterSplit.imagp);
+}
+
+uint32_t FFT::GetFFTSize() const
+{
+    return static_cast<uint32_t>(state_->numRealSamples);
+}
+
+uint32_t FFT::GetSpectrumSize() const
+{
+    return static_cast<uint32_t>(state_->numComplexSamples);
 }
 
 } // namespace audio_utils

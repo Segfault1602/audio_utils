@@ -57,7 +57,7 @@ TEST_CASE("FFT")
 
         audio_utils::FFT fft(nfft);
 
-        bench.minEpochIterations(10000000 / nfft);
+        bench.minEpochIterations(40000000 / nfft);
         bench.batch(nfft);
         bench.unit("samples");
 

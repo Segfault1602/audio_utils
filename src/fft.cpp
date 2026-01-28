@@ -2,6 +2,8 @@
 
 #include <pffft.h>
 
+#include "audio_utils/array_math.h"
+
 #include <algorithm>
 #include <cassert>
 #include <complex>
@@ -189,9 +191,16 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
     mag_spectrum[state_->complex_sample_count_ - 1] =
         std::abs(state_->aligned_spectrum_[0].imag()); // Nyquist component
 
-    for (auto i = 1; i < state_->aligned_spectrum_.size(); ++i)
+    float nyquist = state_->aligned_spectrum_[0].imag();
+    if (options.output_type == FFTOutputType::Magnitude)
     {
-        mag_spectrum[i] = std::abs(state_->aligned_spectrum_[i]);
+        array_math::Magnitude(state_->aligned_spectrum_, mag_spectrum);
+        mag_spectrum.back() = std::abs(nyquist);
+    }
+    if (options.output_type == FFTOutputType::Power)
+    {
+        array_math::PowerSpectrum(state_->aligned_spectrum_, mag_spectrum);
+        mag_spectrum.back() = nyquist * nyquist;
     }
 
     if (options.to_db)

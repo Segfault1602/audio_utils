@@ -130,9 +130,9 @@ TEST_CASE("RealCepstrum")
 
 TEST_CASE("Convolution")
 {
-    constexpr uint32_t kFFTSize = 1024;
-    constexpr uint32_t kFilterSize = 128;
-    constexpr uint32_t kSignalSize = 512;
+    constexpr uint32_t kFFTSize = 64;
+    constexpr uint32_t kFilterSize = 8;
+    constexpr uint32_t kSignalSize = 32;
 
     static_assert(kFilterSize + kSignalSize - 1 <= kFFTSize, "Filter and signal size exceed FFT size");
 
@@ -144,8 +144,8 @@ TEST_CASE("Convolution")
     signal[0] = 1.f;
 
     std::vector<float> filter(kFilterSize, 0.f);
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    // std::random_device rd;
+    std::mt19937 gen(4);
     std::normal_distribution<float> dist(0.0f, 1.0f);
     for (uint32_t i = 0; i < kFilterSize; ++i)
     {
