@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rtaudio/RtAudio.h>
+#include <RtAudio.h>
 
 #include <atomic>
 #include <cstddef>

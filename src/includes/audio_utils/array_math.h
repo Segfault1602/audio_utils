@@ -9,11 +9,13 @@ void Multiply(std::span<const float> a, std::span<const float> b, std::span<floa
 
 void Divide(std::span<const float> a, float b, std::span<float> result);
 
-void Square(std::span<float> data);
+void Square(std::span<const float> data, std::span<float> result);
 
 void Ln(std::span<const float> data, std::span<float> result);
 
 float Mean(std::span<const float> data);
+
+float Sum(std::span<const float> data);
 
 float MaxAbs(std::span<const float> data);
 

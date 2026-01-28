@@ -68,3 +68,10 @@ addpath(genpath("../../../../FDNToolbox"));
 [ir, fs] = audioread("ir_1.wav");
 edc = EDC(ir);
 writematrix(edc, "test_signal_edc.txt");
+
+figure(4);
+t = (0:(length(ir)-1)) / fs;
+plot(t, edc);
+
+[t_abel, echo_dens] = echoDensity(ir, 1024, fs, 0);
+writematrix(echo_dens', "ir_1_echo_density.txt");

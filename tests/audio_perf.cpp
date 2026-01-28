@@ -8,7 +8,10 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <iostream>
+#include <mdspan>
 #include <random>
+#include <ranges>
 
 using namespace ankerl;
 using namespace std::chrono_literals;
@@ -291,5 +294,79 @@ TEST_CASE("EnergyDecayCurve")
     bench.run("TrimSilence", [&] {
         auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
         nanobench::doNotOptimizeAway(trimmed_signal);
+    });
+
+    bench.run("Energy Decay Curve Filter Bank", [&] {
+        auto edc_fb = audio_utils::analysis::EnergyDecayCurve_FilterBank(signal, false, test_utils::kSampleRate);
+        nanobench::doNotOptimizeAway(edc_fb);
+    });
+
+    bench.run("Energy Decay Relief", [&] {
+        audio_utils::analysis::EnergyDecayReliefOptions options;
+        options.fft_length = 1024;
+        options.hop_size = 512;
+        options.window_size = 1024;
+        options.n_mels = 32;
+        options.to_db = false;
+
+        auto edr = audio_utils::analysis::EnergyDecayRelief(signal, options);
+        nanobench::doNotOptimizeAway(edr);
+    });
+}
+
+TEST_CASE("EstimateT60")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+    auto edc = audio_utils::analysis::EnergyDecayCurve(audio_utils::analysis::TrimSilence(signal, 0.5f), true);
+    std::vector<float> time(edc.size());
+
+    for (size_t i = 0; i < edc.size(); ++i)
+    {
+        time[i] = static_cast<float>(i) * 1000.f / static_cast<float>(test_utils::kSampleRate);
+    }
+
+    nanobench::Bench bench;
+    bench.title("Estimate T60 Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+
+    bench.run("Estimate T60 - linear regression", [&] {
+        audio_utils::analysis::EstimateT60Options options;
+        options.decay_start_db = -5.f;
+        options.decay_end_db = -35.f;
+        options.use_linear_regression = true;
+
+        auto t60_results = audio_utils::analysis::EstimateT60(edc, time, options);
+        nanobench::doNotOptimizeAway(t60_results);
+    });
+
+    bench.minEpochIterations(1000);
+    bench.run("Estimate T60 - direct method", [&] {
+        audio_utils::analysis::EstimateT60Options options;
+        options.decay_start_db = -5.f;
+        options.decay_end_db = -35.f;
+        options.use_linear_regression = false;
+
+        auto t60_results = audio_utils::analysis::EstimateT60(edc, time, options);
+        nanobench::doNotOptimizeAway(t60_results);
+    });
+}
+
+TEST_CASE("EchoDensity")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+    audio_utils::analysis::EchoDensityOptions options;
+    options.window_size = 1024;
+    options.hop_size = 500;
+    options.sample_rate = test_utils::kSampleRate;
+
+    nanobench::Bench bench;
+    bench.title("Echo Density Perf");
+    bench.timeUnit(1us, "us");
+    bench.minEpochIterations(1000);
+
+    bench.run("Echo Density", [&] {
+        auto echo_density_results = audio_utils::analysis::EchoDensity(signal, options);
+        nanobench::doNotOptimizeAway(echo_density_results);
     });
 }

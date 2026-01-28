@@ -4,6 +4,8 @@
 #include "audio_utils/fft.h"
 #include "audio_utils/fft_utils.h"
 
+#include "octave_band_filters_fir.h"
+
 #include <Eigen/Core>
 
 #ifdef AUDIO_UTILS_USE_IPP
@@ -188,64 +190,6 @@ std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize
     }
 
     return out;
-}
-
-std::span<float> TrimSilence(std::span<float> signal, float threshold)
-{
-    if (signal.empty())
-    {
-        return {};
-    }
-
-    // Discard silence at the beginning of impulse response
-    const float max_val = array_math::MaxAbs(signal);
-
-    const float target = threshold * std::abs(max_val);
-
-    for (auto i = 0u; i < signal.size(); ++i)
-    {
-        if (std::abs(signal[i]) >= target)
-        {
-            return signal.subspan(i);
-        }
-    }
-    return signal;
-    // auto it_start = std::ranges::find_if(
-    //     signal, [threshold = threshold * std::abs(max_val)](float sample) { return std::abs(sample) >= threshold; });
-
-    // if (it_start != signal.end())
-    // {
-    //     return signal.subspan(std::distance(signal.begin(), it_start));
-    // }
-    // else
-    // {
-    //     return signal;
-    // }
-}
-
-std::vector<float> EnergyDecayCurve(std::span<const float> signal, bool to_db)
-{
-    if (signal.empty())
-    {
-        return {};
-    }
-
-    std::ranges::reverse_view trimmed_signal_reversed{signal};
-    auto s = trimmed_signal_reversed | std::views::transform([](float x) { return x * x; });
-
-    // Calculate the energy decay curve
-    std::vector<float> decay_curve(signal.size(), 0.0f);
-
-    std::ranges::reverse_view decay_curve_reversed{decay_curve};
-
-    std::partial_sum(s.begin(), s.end(), decay_curve_reversed.begin());
-
-    if (to_db)
-    {
-        array_math::ToDb(decay_curve, 10.0f);
-    }
-
-    return decay_curve;
 }
 
 std::vector<float> Convolve(std::span<const float> signal, std::span<const float> kernel)

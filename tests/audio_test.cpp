@@ -263,3 +263,54 @@ TEST_CASE("EnergyDecayCurve")
         REQUIRE_THAT(edc[i], Catch::Matchers::WithinRel(test_signal_edc[i]));
     }
 }
+
+TEST_CASE("EstimateT60")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+    auto edc = audio_utils::analysis::EnergyDecayCurve(audio_utils::analysis::TrimSilence(signal, 0.5f), true);
+    std::vector<float> time(edc.size());
+
+    for (size_t i = 0; i < edc.size(); ++i)
+    {
+        time[i] = static_cast<float>(i) / static_cast<float>(test_utils::kSampleRate);
+    }
+
+    audio_utils::analysis::EstimateT60Options options;
+    options.decay_start_db = -5.f;
+    options.decay_end_db = -35.f;
+    options.use_linear_regression = true;
+
+    auto t60_results = audio_utils::analysis::EstimateT60(edc, time, options);
+
+    options.use_linear_regression = false;
+    auto t60_results_direct = audio_utils::analysis::EstimateT60(edc, time, options);
+    // Compare to reference values
+    REQUIRE_THAT(t60_results.t60, Catch::Matchers::WithinAbs(t60_results_direct.t60, 0.01f));
+    REQUIRE_THAT(t60_results.decay_start_time, Catch::Matchers::WithinAbs(t60_results_direct.decay_start_time, 0.01f));
+    REQUIRE_THAT(t60_results.decay_end_time, Catch::Matchers::WithinAbs(t60_results_direct.decay_end_time, 0.01f));
+}
+
+TEST_CASE("EchoDensity")
+{
+    auto signal = test_utils::LoadTestSignal(test_utils::kImpulseResponseFilename);
+    audio_utils::analysis::EchoDensityOptions options;
+    options.window_size = 1024;
+    options.hop_size = 500;
+    options.sample_rate = test_utils::kSampleRate;
+
+    auto echo_density_results = audio_utils::analysis::EchoDensity(signal, options);
+    std::cout << "Mixing time: " << echo_density_results.mixing_time << " seconds" << std::endl;
+
+    auto test_signal_echo_density = test_utils::LoadTestSignalMetric(test_utils::kIrEchoDensity);
+    // REQUIRE(test_signal_echo_density.size() == echo_density_results.echo_densities.size());
+    for (size_t i = 0; i < echo_density_results.echo_densities.size(); ++i)
+    {
+        REQUIRE_THAT(echo_density_results.sparse_indices[i],
+                     Catch::Matchers::WithinAbs(static_cast<int>(i * options.hop_size), 1));
+        CHECK(echo_density_results.sparse_indices[i] < test_signal_echo_density.size());
+
+        REQUIRE_THAT(
+            echo_density_results.echo_densities[i],
+            Catch::Matchers::WithinRel(test_signal_echo_density[echo_density_results.sparse_indices[i]], 0.05f));
+    }
+}

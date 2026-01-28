@@ -1,10 +1,11 @@
 #include "rtaudio_impl.h"
 
+#include <RtAudio.h>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <ranges>
-#include <rtaudio/RtAudio.h>
 #include <string>
 #include <vector>
 

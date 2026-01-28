@@ -3,7 +3,7 @@ add_library(audio_utils::audio_utils ALIAS audio_utils)
 
 target_sources(
     audio_utils
-    PRIVATE audio_analysis.cpp fft_utils.cpp array_math.cpp
+    PRIVATE audio_analysis.cpp fft_utils.cpp array_math.cpp acoustics.cpp
     PUBLIC FILE_SET
            "audio_utils_headers"
            TYPE
@@ -19,7 +19,12 @@ target_sources(
            ./includes/audio_utils/ring_buffer.h
            ./includes/audio_utils/array_math.h)
 
-target_link_libraries(audio_utils PRIVATE Eigen3::Eigen)
+target_link_libraries(audio_utils PRIVATE Eigen audioutils::audioutils_options
+                                          audioutils::audioutils_warnings)
+
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(audio_utils PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 if(IPP_FOUND)
     message(STATUS "Using Intel IPP for FFT computations")
@@ -38,25 +43,11 @@ endif()
 
 if(AUDIO_UTILS_USE_SNDFILE)
     target_sources(audio_utils PRIVATE audio_file_manager.cpp sndfile_manager_impl.cpp)
-    target_link_libraries(audio_utils PUBLIC SndFile::sndfile SampleRate::samplerate)
+    target_link_libraries(audio_utils PRIVATE sndfile samplerate)
 endif()
 
 if(APPLE)
     target_link_libraries(audio_utils PRIVATE "-framework Accelerate")
 endif()
 
-target_compile_options(audio_utils PRIVATE ${AUDIO_UTILS_CXX_COMPILE_OPTIONS})
-target_link_options(audio_utils PUBLIC ${AUDIO_UTILS_LINK_OPTIONS})
-target_compile_definitions(audio_utils PRIVATE ${AUDIO_UTILS_COMPILE_DEFINITION})
-
 target_compile_features(audio_utils PUBLIC cxx_std_23)
-
-install(
-    TARGETS audio_utils
-    EXPORT audio_utilsTargets
-    FILE_SET audio_utils_headers)
-
-install(
-    EXPORT audio_utilsTargets
-    DESTINATION share/cmake/audio_utils
-    NAMESPACE audio_utils::)

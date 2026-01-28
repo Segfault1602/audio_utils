@@ -26,6 +26,8 @@ constexpr std::string_view kTestSignalAutocorr = "tests/test_signal_autocorr.txt
 
 constexpr std::string_view kTestSignalSpectrogram = "tests/test_signal_spectrogram.txt";
 
+constexpr std::string_view kIrEchoDensity = "tests/ir_1_echo_density.txt";
+
 inline std::vector<float> LoadTestSignal(const std::string_view filename)
 {
     SF_INFO sfinfo;

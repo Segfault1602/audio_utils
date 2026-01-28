@@ -48,18 +48,18 @@ void Divide(std::span<const float> a, float b, std::span<float> result)
 #endif
 }
 
-void Square(std::span<float> data)
+void Square(std::span<const float> data, std::span<float> result)
 {
 #ifndef AUDIO_UTILS_USE_IPP
     for (size_t i = 0; i < data.size(); ++i)
     {
-        data[i] = data[i] * data[i];
+        result[i] = data[i] * data[i];
     }
 #else
-    IppStatus status = ippsSqr_32f_I(data.data(), static_cast<int>(data.size()));
+    IppStatus status = ippsSqr_32f(data.data(), result.data(), static_cast<int>(data.size()));
     if (status != ippStsNoErr)
     {
-        throw std::runtime_error("ippsSqr_32f_I failed with error code " + std::to_string(status));
+        throw std::runtime_error("ippsSqr_32f failed with error code " + std::to_string(status));
     }
 #endif
 }
@@ -94,6 +94,23 @@ float Mean(std::span<const float> data)
     }
 
     return mean;
+#endif
+}
+
+float Sum(std::span<const float> data)
+{
+#ifdef AUDIO_UTILS_USE_IPP
+    float sum = 0.0f;
+    IppStatus status = ippsSum_32f(data.data(), static_cast<int>(data.size()), &sum, ippAlgHintFast);
+    if (status != ippStsNoErr)
+    {
+        throw std::runtime_error("ippsSum_32f failed with error code " + std::to_string(status));
+    }
+
+    return sum;
+#else
+    float sum = std::accumulate(data.begin(), data.end(), 0.0f);
+    return sum;
 #endif
 }
 

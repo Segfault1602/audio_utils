@@ -8,24 +8,7 @@ else()
     set(CMAKE_C_COMPILER "clang")
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if(APPLE)
-        set(AUDIO_UTILS_SANITIZER -fsanitize=address)
-    endif()
-    set(AUDIO_UTILS_COMPILE_DEFINITION -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG)
+# For openmp support on Windows
+if(WIN32)
+    set(CMAKE_SYSTEM_LIBRARY_PATH "$ENV{ProgramFiles}/LLVM/lib")
 endif()
-
-set(AUDIO_UTILS_CXX_COMPILE_OPTIONS
-    -Wall
-    -Wextra
-    -Wpedantic
-    -Werror
-    -Wno-sign-compare
-    -Wunsafe-buffer-usage
-    -fno-omit-frame-pointer
-    -march=native
-    ${AUDIO_UTILS_SANITIZER})
-
-set(AUDIO_UTILS_LINK_OPTIONS ${AUDIO_UTILS_SANITIZER})
-
-include($ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)

@@ -8,7 +8,6 @@
 #include <numbers>
 
 #include <Eigen/Core>
-#include <pffft/pffft.h>
 
 namespace
 {

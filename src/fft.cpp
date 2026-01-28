@@ -1,6 +1,6 @@
 #include "audio_utils/fft.h"
 
-#include <pffft/pffft.h>
+#include <pffft.h>
 
 #include <algorithm>
 #include <cassert>
@@ -166,7 +166,7 @@ void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
     spectrum[0].imag(0.0f);
 }
 
-void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, bool to_db, bool normalize)
+void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, const ForwardFFTOptions& options)
 {
     if (signal.size() > state_->fft_size_)
     {
@@ -194,13 +194,7 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
         mag_spectrum[i] = std::abs(state_->aligned_spectrum_[i]);
     }
 
-    if (normalize)
-    {
-        float max_val = *std::ranges::max_element(mag_spectrum);
-        std::ranges::transform(mag_spectrum, mag_spectrum.begin(), [max_val](float val) { return val / max_val; });
-    }
-
-    if (to_db)
+    if (options.to_db)
     {
         std::ranges::transform(mag_spectrum, mag_spectrum.begin(), [](float val) { return 20.0f * std::log10f(val); });
     }
