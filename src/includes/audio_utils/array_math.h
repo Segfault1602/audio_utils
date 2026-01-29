@@ -13,6 +13,8 @@ void Square(std::span<const float> data, std::span<float> result);
 
 void Ln(std::span<const float> data, std::span<float> result);
 
+void CumSum(std::span<const float> data, std::span<float> result, int dir = 1);
+
 float Mean(std::span<const float> data);
 
 float Sum(std::span<const float> data);

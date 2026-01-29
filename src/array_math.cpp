@@ -2,12 +2,16 @@
 
 #ifdef AUDIO_UTILS_USE_IPP
 #include <ipp.h>
+#elifdef AUDIO_UTILS_USE_VDSP
+#include <Accelerate/Accelerate.h>
 #endif
 
 #include <algorithm>
+#include <iostream>
 #include <numeric>
 #include <span>
 #include <stdexcept>
+
 #include <string>
 
 namespace audio_utils::array_math
@@ -50,6 +54,7 @@ void Divide(std::span<const float> a, float b, std::span<float> result)
 
 void Square(std::span<const float> data, std::span<float> result)
 {
+<<<<<<< HEAD
 #ifndef AUDIO_UTILS_USE_IPP
     for (size_t i = 0; i < data.size(); ++i)
     {
@@ -57,35 +62,63 @@ void Square(std::span<const float> data, std::span<float> result)
     }
 #else
     IppStatus status = ippsSqr_32f(data.data(), result.data(), static_cast<int>(data.size()));
+=======
+#ifdef AUDIO_UTILS_USE_IPP
+    IppStatus status = ippsSqr_32f_I(data.data(), static_cast<int>(data.size()));
+>>>>>>> cff91fe (Tune EDC function on mac)
     if (status != ippStsNoErr)
     {
         throw std::runtime_error("ippsSqr_32f failed with error code " + std::to_string(status));
+    }
+#else
+    for (size_t i = 0; i < data.size(); ++i)
+    {
+        data[i] = data[i] * data[i];
     }
 #endif
 }
 
 void Ln(std::span<const float> data, std::span<float> result)
 {
-#ifndef AUDIO_UTILS_USE_IPP
-    for (size_t i = 0; i < data.size(); ++i)
-    {
-        result[i] = std::log(data[i]);
-    }
-#else
+#ifdef AUDIO_UTILS_USE_IPP
     IppStatus status = ippsLn_32f(data.data(), result.data(), static_cast<int>(data.size()));
     if (status != ippStsNoErr)
     {
         throw std::runtime_error("ippsLn_32f failed with error code " + std::to_string(status));
+    }
+// #elifdef AUDIO_UTILS_USE_VDSP
+//     const int size = static_cast<int>(data.size());
+//     vvlogf(result.data(), data.data(), &size);
+#else
+    for (size_t i = 0; i < data.size(); ++i)
+    {
+        result[i] = std::log(data[i]);
+    }
+#endif
+}
+
+void CumSum(std::span<const float> data, std::span<float> result, int dir)
+{
+#ifdef AUDIO_UTILS_USE_VDSP
+    float s = 1.0f;
+    float first_elem = data.back();
+    vDSP_vrsum(&data.back(), dir, &s, &result.back(), dir, data.size());
+    vDSP_vsadd(result.data(), 1, &first_elem, result.data(), 1, data.size());
+#else
+    if (dir >= 1)
+    {
+        std::partial_sum(data.begin(), data.end(), result.begin());
+    }
+    else
+    {
+        std::partial_sum(data.rbegin(), data.rend(), result.rbegin());
     }
 #endif
 }
 
 float Mean(std::span<const float> data)
 {
-#ifndef AUDIO_UTILS_USE_IPP
-    float sum = std::accumulate(data.begin(), data.end(), 0.0f);
-    return sum / static_cast<float>(data.size());
-#else
+#ifdef AUDIO_UTILS_USE_IPP
     float mean = 0.0f;
     IppStatus status = ippsMean_32f(data.data(), static_cast<int>(data.size()), &mean, ippAlgHintNone);
     if (status != ippStsNoErr)
@@ -94,6 +127,13 @@ float Mean(std::span<const float> data)
     }
 
     return mean;
+#elifdef AUDIO_UTILS_USE_VDSP
+    float mean = 0.0f;
+    vDSP_meanv(data.data(), 1, &mean, data.size());
+    return mean;
+#else
+    float sum = std::accumulate(data.begin(), data.end(), 0.0f);
+    return sum / static_cast<float>(data.size());
 #endif
 }
 
@@ -116,16 +156,19 @@ float Sum(std::span<const float> data)
 
 float MaxAbs(std::span<const float> data)
 {
-#ifndef AUDIO_UTILS_USE_IPP
-    const auto [min, max] = std::ranges::minmax_element(data.begin(), data.end());
-    float max_val = std::max(std::abs(*min), std::abs(*max));
-#else
+#ifdef AUDIO_UTILS_USE_IPP
     float max_val = 0.f;
     IppStatus status = ippsMaxAbs_32f(data.data(), static_cast<int>(data.size()), &max_val);
     if (status != ippStsNoErr)
     {
         throw std::runtime_error("ippsMaxAbs_32f failed with error code " + std::to_string(status));
     }
+#elifdef AUDIO_UTILS_USE_VDSP
+    float max_val = 0.f;
+    vDSP_maxmgv(data.data(), 1, &max_val, data.size());
+#else
+    const auto [min, max] = std::ranges::minmax_element(data.begin(), data.end());
+    float max_val = std::max(std::abs(*min), std::abs(*max));
 #endif
 
     return max_val;
@@ -175,17 +218,23 @@ void PowerSpectrum(std::span<const std::complex<float>> spectrum, std::span<std:
 
 void ToDb(std::span<float> data, float scale)
 {
-
-#ifndef AUDIO_UTILS_USE_IPP
+#ifdef AUDIO_UTILS_USE_IPP
+    ippsLog10_32f_A21(data.data(), data.data(), data.size());
+    ippsMulC_32f_I(scale, data.data(), data.size());
+#elifdef AUDIO_UTILS_USE_VDSP
+    const unsigned int f = (scale == 10.f) ? 0 : 1;
+    float vref = 1.0f;
+    vDSP_vdbcon(data.data(), 1, &vref, data.data(), 1, data.size(), f);
+#else
     constexpr float epsilon = 1e-10f;
     for (auto& val : data)
     {
         val = scale * std::log10(val + epsilon);
     }
-#else
-    ippsAddC_32f_I(1e-10f, data.data(), data.size()); // Add epsilon to avoid log of zero
-    ippsLog10_32f_A21(data.data(), data.data(), data.size());
-    ippsMulC_32f_I(scale, data.data(), data.size());
+// #else
+//     ippsAddC_32f_I(1e-10f, data.data(), data.size()); // Add epsilon to avoid log of zero
+//     ippsLog10_32f_A21(data.data(), data.data(), data.size());
+//     ippsMulC_32f_I(scale, data.data(), data.size());
 #endif
 }
 

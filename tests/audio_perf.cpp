@@ -9,7 +9,10 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
+<<<<<<< HEAD
 #include <mdspan>
+=======
+>>>>>>> cff91fe (Tune EDC function on mac)
 #include <random>
 #include <ranges>
 
@@ -248,7 +251,7 @@ TEST_CASE("SpectralFlatness")
     nanobench::Bench bench;
     bench.title("Spectral Flatness Perf");
     bench.timeUnit(1us, "us");
-    bench.minEpochIterations(100);
+    bench.minEpochIterations(500);
 
     std::string title = std::format("Spectral Flatness (NFFT={})", nfft);
 
