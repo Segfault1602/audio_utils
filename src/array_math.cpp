@@ -54,18 +54,8 @@ void Divide(std::span<const float> a, float b, std::span<float> result)
 
 void Square(std::span<const float> data, std::span<float> result)
 {
-<<<<<<< HEAD
-#ifndef AUDIO_UTILS_USE_IPP
-    for (size_t i = 0; i < data.size(); ++i)
-    {
-        result[i] = data[i] * data[i];
-    }
-#else
-    IppStatus status = ippsSqr_32f(data.data(), result.data(), static_cast<int>(data.size()));
-=======
 #ifdef AUDIO_UTILS_USE_IPP
-    IppStatus status = ippsSqr_32f_I(data.data(), static_cast<int>(data.size()));
->>>>>>> cff91fe (Tune EDC function on mac)
+    IppStatus status = ippsSqr_32f(data.data(), result.data(), static_cast<int>(data.size()));
     if (status != ippStsNoErr)
     {
         throw std::runtime_error("ippsSqr_32f failed with error code " + std::to_string(status));
@@ -73,7 +63,7 @@ void Square(std::span<const float> data, std::span<float> result)
 #else
     for (size_t i = 0; i < data.size(); ++i)
     {
-        data[i] = data[i] * data[i];
+        result[i] = data[i] * data[i];
     }
 #endif
 }

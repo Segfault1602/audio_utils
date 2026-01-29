@@ -9,10 +9,6 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
-<<<<<<< HEAD
-#include <mdspan>
-=======
->>>>>>> cff91fe (Tune EDC function on mac)
 #include <random>
 #include <ranges>
 

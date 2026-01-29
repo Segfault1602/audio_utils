@@ -192,55 +192,6 @@ std::vector<float> Autocorrelation(std::span<const float> signal, bool normalize
     return out;
 }
 
-<<<<<<< HEAD
-=======
-std::span<float> TrimSilence(std::span<float> signal, float threshold)
-{
-    if (signal.empty())
-    {
-        return {};
-    }
-
-    // Discard silence at the beginning of impulse response
-    const float max_val = array_math::MaxAbs(signal);
-
-    const float target = threshold * std::abs(max_val);
-
-    for (auto i = 0u; i < signal.size(); ++i)
-    {
-        if (std::abs(signal[i]) >= target)
-        {
-            return signal.subspan(i);
-        }
-    }
-    return signal;
-}
-
-std::vector<float> EnergyDecayCurve(std::span<const float> signal, bool to_db)
-{
-    if (signal.empty())
-    {
-        return {};
-    }
-
-    std::ranges::reverse_view trimmed_signal_reversed{signal};
-
-    // Calculate the energy decay curve
-    std::vector<float> decay_curve(signal.size(), 0.0f);
-    std::ranges::copy(signal, decay_curve.begin());
-    array_math::Square(decay_curve);
-
-    array_math::CumSum(decay_curve, decay_curve, -1);
-
-    if (to_db)
-    {
-        array_math::ToDb(decay_curve, 10.0f);
-    }
-
-    return decay_curve;
-}
-
->>>>>>> cff91fe (Tune EDC function on mac)
 std::vector<float> Convolve(std::span<const float> signal, std::span<const float> kernel)
 {
     const uint32_t conv_size = signal.size() + kernel.size() - 1;

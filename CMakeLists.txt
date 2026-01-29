@@ -4,6 +4,8 @@ project(audio_utils)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(./fetch_deps.cmake)
+
 option(AUDIO_UTILS_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 option(AUDIO_UTILS_USE_SNDFILE "Use sndfile library for audio file I/O" ON)
 option(AUDIO_UTILS_USE_RTAUDIO "Use RtAudio library for audio playback and recording" ON)
@@ -21,8 +23,6 @@ include(cmake/project-options.cmake)
 add_library(audioutils_warnings INTERFACE)
 add_library(audioutils::audioutils_warnings ALIAS audioutils_warnings)
 target_compile_options(audioutils_warnings INTERFACE ${AUDIO_UTILS_WARNINGS_CXX})
-
-include(./fetch_deps.cmake)
 
 add_subdirectory(src)
 
