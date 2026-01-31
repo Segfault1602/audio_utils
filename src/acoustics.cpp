@@ -94,6 +94,12 @@ std::array<std::vector<float>, kNumOctaveBands> EnergyDecayCurve_FilterBank(std:
     return edc_octaves;
 }
 
+std::array<float, kNumOctaveBands> GetOctaveBandFrequencies()
+{
+    // TODO: Generate these programmatically
+    return {62.5f, 125.0f, 250.0f, 500.0f, 1000.0f, 2000.0f, 4000.0f, 8000.0f, 16000.0f};
+}
+
 EnergyDecayReliefResult EnergyDecayRelief(std::span<const float> signal, const EnergyDecayReliefOptions& options)
 {
     if (signal.empty())

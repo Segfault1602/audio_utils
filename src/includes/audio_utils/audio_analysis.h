@@ -65,6 +65,8 @@ std::array<std::vector<float>, kNumOctaveBands> EnergyDecayCurve_FilterBank(std:
                                                                             bool to_db = false,
                                                                             uint32_t samplerate = 48000);
 
+std::array<float, kNumOctaveBands> GetOctaveBandFrequencies();
+
 struct EnergyDecayReliefResult
 {
     std::vector<float> data;
