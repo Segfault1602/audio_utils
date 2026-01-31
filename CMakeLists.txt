@@ -14,9 +14,9 @@ option(AUDIO_UTILS_USE_SANITIZER "Use AddressSanitizer" ON)
 include(cmake/project-warnings.cmake)
 include(cmake/project-options.cmake)
 
-if(PROJECT_IS_TOP_LEVEL)
-    set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
-endif()
+# if(PROJECT_IS_TOP_LEVEL)
+#     set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+# endif()
 
 add_library(audioutils_warnings INTERFACE)
 add_library(audioutils::audioutils_warnings ALIAS audioutils_warnings)

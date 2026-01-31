@@ -19,7 +19,7 @@ target_sources(
            ./includes/audio_utils/ring_buffer.h
            ./includes/audio_utils/array_math.h)
 
-target_link_libraries(audio_utils PRIVATE Eigen audioutils::audioutils_options
+target_link_libraries(audio_utils PRIVATE Eigen3::Eigen audioutils::audioutils_options
                                           audioutils::audioutils_warnings)
 
 if(OpenMP_CXX_FOUND)

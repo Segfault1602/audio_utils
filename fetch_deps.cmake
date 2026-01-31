@@ -62,18 +62,15 @@ endif()
 cpmaddpackage(
     NAME
     Eigen
-    VERSION
+    GIT_TAG
     5.0.1
-    URL
-    https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz
-    # Eigen's CMakelists are not intended for library use
-    DOWNLOAD_ONLY
-    YES)
+    GIT_REPOSITORY
+    https://gitlab.com/libeigen/eigen)
 
-if(Eigen_ADDED)
-    add_library(Eigen INTERFACE IMPORTED)
-    target_include_directories(Eigen INTERFACE ${Eigen_SOURCE_DIR})
-endif()
+# if(Eigen_ADDED)
+#     add_library(Eigen INTERFACE IMPORTED)
+#     target_include_directories(Eigen INTERFACE ${Eigen_SOURCE_DIR})
+# endif()
 
 cpmaddpackage(
     NAME
