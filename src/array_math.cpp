@@ -153,7 +153,7 @@ void PowerSpectrum(std::span<const std::complex<float>> spectrum, std::span<floa
 #ifndef AUDIO_UTILS_USE_IPP
     for (size_t i = 0; i < spectrum.size(); ++i)
     {
-        result[i] = std::norm(spectrum[i]);
+        result[i] = std::pow(std::norm(spectrum[i]), 2.f);
     }
 #else
     IppStatus status = ippsPowerSpectr_32fc(reinterpret_cast<const Ipp32fc*>(spectrum.data()), result.data(),
@@ -183,6 +183,7 @@ void ToDb(std::span<float> data, float scale)
         val = scale * std::log10(val + epsilon);
     }
 #else
+    ippsAddC_32f_I(1e-10f, data.data(), data.size()); // Add epsilon to avoid log of zero
     ippsLog10_32f_A21(data.data(), data.data(), data.size());
     ippsMulC_32f_I(scale, data.data(), data.size());
 #endif

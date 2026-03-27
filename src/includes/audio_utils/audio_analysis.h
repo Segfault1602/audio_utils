@@ -81,7 +81,7 @@ struct EnergyDecayReliefOptions
     uint32_t window_size = 1024;
     audio_utils::FFTWindowType window_type = audio_utils::FFTWindowType::Hann;
     uint32_t n_mels = 32;
-    bool to_db = false;
+    bool to_db = true;
 };
 
 /**
