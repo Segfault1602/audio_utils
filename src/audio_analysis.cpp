@@ -236,7 +236,7 @@ float SpectralFlatness(std::span<const float> power_spectrum)
     return geo_mean / arith_mean;
 }
 
-STFTResult STFT(std::span<const float> signal, STFTOptions& options, bool flip)
+STFTResult STFT(std::span<const float> signal, const STFTOptions& options, bool flip)
 {
     ValidateSTFTOptions(options);
 
@@ -281,7 +281,7 @@ STFTResult STFT(std::span<const float> signal, STFTOptions& options, bool flip)
 }
 
 #if 1
-STFTResult MelSpectrogram(std::span<const float> signal, STFTOptions& options, size_t n_mels, bool flip)
+STFTResult MelSpectrogram(std::span<const float> signal, const STFTOptions& options, size_t n_mels, bool flip)
 {
     ValidateSTFTOptions(options);
 
@@ -301,8 +301,9 @@ STFTResult MelSpectrogram(std::span<const float> signal, STFTOptions& options, s
 
     for (auto i = 0; i < stft_map.cols(); ++i)
     {
-        Eigen::VectorXf mel_spectrum = mel_weights * stft_map.col(i);
-        result_map.col(i) = mel_spectrum;
+        result_map.col(i).noalias() = mel_weights * stft_map.col(i);
+        // Eigen::VectorXf mel_spectrum = mel_weights * stft_map.col(i);
+        // result_map.col(i) = mel_spectrum;
     }
 
     if (flip)

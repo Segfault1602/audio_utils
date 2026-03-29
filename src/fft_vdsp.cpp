@@ -1,5 +1,7 @@
 #include "audio_utils/fft.h"
 
+#include "audio_utils/array_math.h"
+
 #include <Accelerate/Accelerate.h>
 
 #include <algorithm>
@@ -108,6 +110,12 @@ FFT::FFT(uint32_t fft_size)
 
 FFT::~FFT()
 {
+    if (!state_)
+    {
+        // If state_ is null, the object was moved from and there's nothing to clean up
+        return;
+    }
+
     if (state_->mForwardSetup)
     {
         vDSP_DFT_DestroySetup(state_->mForwardSetup);
@@ -131,6 +139,20 @@ FFT::~FFT()
         FreeBuffer(state_->deinterleaved[1]);
         state_->deinterleaved[1] = nullptr;
     }
+}
+
+FFT::FFT(FFT&& other) noexcept
+{
+    state_ = std::move(other.state_);
+}
+
+FFT& FFT::operator=(FFT&& other) noexcept
+{
+    if (this != &other)
+    {
+        state_ = std::move(other.state_);
+    }
+    return *this;
 }
 
 void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
@@ -200,24 +222,18 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
     splitComplex.imagp[0] = 0.0f;
 #pragma clang unsafe_buffer_usage end
 
-    if (options.output_type == FFTOutputType::Magnitude)
+    vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
+    const float scalar = 0.5f;
+    vDSP_vsmul(mag_spectrum.data(), 1, &scalar, mag_spectrum.data(), 1, state_->numComplexSamples);
+
+    if (options.output_type == FFTOutputType::Power)
     {
-        vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
-    }
-    else if (options.output_type == FFTOutputType::Power)
-    {
-        vDSP_zvabs(&splitComplex, 1, mag_spectrum.data(), 1, state_->numComplexSamples);
         vDSP_vsq(mag_spectrum.data(), 1, mag_spectrum.data(), 1, state_->numComplexSamples);
     }
 
-    float scalar = 0.5f;
-    vDSP_vsmul(mag_spectrum.data(), 1, &scalar, mag_spectrum.data(), 1, state_->numComplexSamples);
-
     if (options.to_db)
     {
-        float zero_ref = 1.0f;
-        vDSP_vdbcon(mag_spectrum.data(), 1, &zero_ref, mag_spectrum.data(), 1, mag_spectrum.size(),
-                    options.output_type == FFTOutputType::Magnitude ? 1 : 0);
+        array_math::ToDb(mag_spectrum, options.output_type == FFTOutputType::Magnitude ? 20.0f : 10.0f);
     }
 }
 

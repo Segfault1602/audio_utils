@@ -107,6 +107,15 @@ TEST_CASE("FFTMagnitude")
     {
         REQUIRE_THAT(signal_spectrum[i], Catch::Matchers::WithinRel(test_signal_db_spectrum[i], 0.01f));
     }
+
+    fft.ForwardMag(signal, signal_spectrum, {audio_utils::FFTOutputType::Power, false});
+    auto test_signal_power_spectrum = test_utils::LoadTestSignalMetric(test_utils::kTestSignalPowerSpectrum);
+    REQUIRE(test_signal_power_spectrum.size() >= signal_spectrum.size());
+
+    for (size_t i = 1; i < signal_spectrum.size(); ++i)
+    {
+        REQUIRE_THAT(signal_spectrum[i], Catch::Matchers::WithinRel(test_signal_power_spectrum[i], 0.001f));
+    }
 }
 
 TEST_CASE("RealCepstrum")
@@ -302,7 +311,6 @@ TEST_CASE("EchoDensity")
     std::cout << "Mixing time: " << echo_density_results.mixing_time << " seconds" << std::endl;
 
     auto test_signal_echo_density = test_utils::LoadTestSignalMetric(test_utils::kIrEchoDensity);
-    // REQUIRE(test_signal_echo_density.size() == echo_density_results.echo_densities.size());
     for (size_t i = 0; i < echo_density_results.echo_densities.size(); ++i)
     {
         REQUIRE_THAT(echo_density_results.sparse_indices[i],

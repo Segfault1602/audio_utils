@@ -33,6 +33,12 @@ class FFT
     FFT(uint32_t fft_size);
     ~FFT();
 
+    FFT(const FFT&) = delete;
+    FFT& operator=(const FFT&) = delete;
+
+    FFT(FFT&&) noexcept;
+    FFT& operator=(FFT&&) noexcept;
+
     void Forward(std::span<const float> signal, std::span<complex_t> spectrum);
 
     void ForwardMag(std::span<const float> signal, std::span<float> spectrum, const ForwardFFTOptions& options);

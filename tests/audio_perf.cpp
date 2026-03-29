@@ -290,16 +290,18 @@ TEST_CASE("EnergyDecayCurve")
         nanobench::doNotOptimizeAway(edc);
     });
 
-    bench.run("TrimSilence", [&] {
-        auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
-        nanobench::doNotOptimizeAway(trimmed_signal);
-    });
+    // bench.run("TrimSilence", [&] {
+    //     auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
+    //     nanobench::doNotOptimizeAway(trimmed_signal);
+    // });
 
-    bench.run("Energy Decay Curve Filter Bank", [&] {
-        auto edc_fb = audio_utils::analysis::EnergyDecayCurve_FilterBank(signal, false, test_utils::kSampleRate);
-        nanobench::doNotOptimizeAway(edc_fb);
-    });
+    // bench.minEpochIterations(10);
+    // bench.run("Energy Decay Curve Filter Bank", [&] {
+    //     auto edc_fb = audio_utils::analysis::EnergyDecayCurve_FilterBank(signal, false, test_utils::kSampleRate);
+    //     nanobench::doNotOptimizeAway(edc_fb);
+    // });
 
+    bench.minEpochIterations(1000);
     bench.run("Energy Decay Relief", [&] {
         audio_utils::analysis::EnergyDecayReliefOptions options;
         options.fft_length = 1024;

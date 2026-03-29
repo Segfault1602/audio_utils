@@ -168,7 +168,7 @@ float SpectralFlatness(std::span<const float> power_spectrum);
  *
  * @return STFTResult The computed spectrogram result.
  */
-STFTResult STFT(std::span<const float> signal, STFTOptions& info, bool flip = false);
+STFTResult STFT(std::span<const float> signal, const STFTOptions& info, bool flip = false);
 
 /**
  * @brief Computes the Mel spectrogram of a signal.
@@ -178,6 +178,6 @@ STFTResult STFT(std::span<const float> signal, STFTOptions& info, bool flip = fa
  *
  * @param flip If true, the Mel frequency bins in the output spectrogram are reversed such that the highest Mel
  */
-STFTResult MelSpectrogram(std::span<const float> signal, STFTOptions& info, size_t n_mels, bool flip = false);
+STFTResult MelSpectrogram(std::span<const float> signal, const STFTOptions& info, size_t n_mels, bool flip = false);
 
 } // namespace audio_utils::analysis

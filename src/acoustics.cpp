@@ -127,16 +127,15 @@ EnergyDecayReliefResult EnergyDecayRelief(std::span<const float> signal, const E
 
     auto spectrogram = audio_utils::analysis::MelSpectrogram(signal, spec_info, options.n_mels);
 
-    Eigen::Map<const Eigen::MatrixXf> spec_map(spectrogram.data.data(), spectrogram.num_bins, spectrogram.num_frames);
+    Eigen::Map<const Eigen::ArrayXXf> spec_map(spectrogram.data.data(), spectrogram.num_bins, spectrogram.num_frames);
 
-    std::vector<float> edr_data(spectrogram.num_frames * spectrogram.num_bins, 0);
-    Eigen::Map<Eigen::MatrixXf> edr_map(edr_data.data(), spectrogram.num_bins, spectrogram.num_frames);
+    std::vector<float> edr_data(spectrogram.num_frames * spectrogram.num_bins);
+    Eigen::Map<Eigen::ArrayXXf> edr_map(edr_data.data(), spectrogram.num_bins, spectrogram.num_frames);
 
-    Eigen::ArrayXf cumulative_energy = Eigen::ArrayXf::Zero(spectrogram.num_bins);
-    for (int i = spec_map.cols() - 1; i >= 0; --i)
+    edr_map = spec_map.square();
+    for (int i = edr_map.cols() - 2; i >= 0; --i)
     {
-        cumulative_energy += spec_map.col(i).array().square();
-        edr_map.col(i) = cumulative_energy;
+        edr_map.col(i) += edr_map.col(i + 1);
     }
 
     if (options.to_db)
