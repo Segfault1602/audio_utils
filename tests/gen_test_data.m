@@ -28,6 +28,9 @@ writematrix(txt_friendly_spectrum, "test_signal_spectrum_8192.txt");
 mag_spectrum = abs(xf);
 writematrix(mag_spectrum, "test_signal_mag_spectrum.txt");
 
+pwr_spectrum = xf .* conj(xf);
+writematrix(pwr_spectrum, "test_signal_power_spectrum.txt");
+
 db_spectrum = 20*log10(mag_spectrum);
 writematrix(db_spectrum, "test_signal_db_spectrum.txt");
 
@@ -64,7 +67,7 @@ imagesc(sdb);
 writematrix(sdb, "test_signal_spectrogram.txt");
 
 
-addpath(genpath("../../../../FDNToolbox"));
+addpath(genpath("../../FDNToolbox"));
 [ir, fs] = audioread("ir_1.wav");
 edc = EDC(ir);
 writematrix(edc, "test_signal_edc.txt");
