@@ -209,6 +209,7 @@ void PowerSpectrum(std::span<const std::complex<float>> spectrum, std::span<std:
 void ToDb(std::span<float> data, float scale)
 {
 #ifdef AUDIO_UTILS_USE_IPP
+    ippsAddC_32f_I(1e-10f, data.data(), data.size()); // Add epsilon to avoid log of zero
     ippsLog10_32f_A21(data.data(), data.data(), data.size());
     ippsMulC_32f_I(scale, data.data(), data.size());
 #elifdef AUDIO_UTILS_USE_VDSP
@@ -221,10 +222,6 @@ void ToDb(std::span<float> data, float scale)
     {
         val = scale * std::log10(val + epsilon);
     }
-// #else
-//     ippsAddC_32f_I(1e-10f, data.data(), data.size()); // Add epsilon to avoid log of zero
-//     ippsLog10_32f_A21(data.data(), data.data(), data.size());
-//     ippsMulC_32f_I(scale, data.data(), data.size());
 #endif
 }
 

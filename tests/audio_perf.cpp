@@ -290,10 +290,10 @@ TEST_CASE("EnergyDecayCurve")
         nanobench::doNotOptimizeAway(edc);
     });
 
-    // bench.run("TrimSilence", [&] {
-    //     auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
-    //     nanobench::doNotOptimizeAway(trimmed_signal);
-    // });
+    bench.run("TrimSilence", [&] {
+        auto trimmed_signal = audio_utils::analysis::TrimSilence(signal, 0.5f);
+        nanobench::doNotOptimizeAway(trimmed_signal);
+    });
 
     // bench.minEpochIterations(10);
     // bench.run("Energy Decay Curve Filter Bank", [&] {
