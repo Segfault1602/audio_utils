@@ -1,6 +1,5 @@
 add_library(audioutils_options INTERFACE)
 add_library(audioutils::audioutils_options ALIAS audioutils_options)
-target_compile_features(audioutils_options INTERFACE cxx_std_23)
 
 if(AUDIO_UTILS_USE_SANITIZER)
     if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")

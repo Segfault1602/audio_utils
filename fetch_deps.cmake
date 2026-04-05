@@ -88,4 +88,3 @@ if(pffft_ADDED)
 endif()
 
 find_package(IPP)
-find_package(OpenMP)

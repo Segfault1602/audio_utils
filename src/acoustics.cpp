@@ -78,7 +78,6 @@ std::array<std::vector<float>, kNumOctaveBands> EnergyDecayCurve_FilterBank(std:
     static_assert(kOctaveBandFirFilters.size() == edc_octaves.size(),
                   "Number of octave band filters must match number of EDC output vectors");
 
-#pragma omp parallel for
     for (auto i = 0; i < kOctaveBandFirFilters.size(); ++i)
     {
         const auto& fir_coeffs = kOctaveBandFirFilters[i];

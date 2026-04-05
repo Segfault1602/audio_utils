@@ -22,10 +22,6 @@ target_sources(
 target_link_libraries(audio_utils PRIVATE Eigen3::Eigen audioutils::audioutils_options
                                           audioutils::audioutils_warnings)
 
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(audio_utils PRIVATE OpenMP::OpenMP_CXX)
-endif()
-
 if(IPP_FOUND)
     message(STATUS "Using Intel IPP for FFT computations")
     target_sources(audio_utils PRIVATE fft_ipp.cpp)
