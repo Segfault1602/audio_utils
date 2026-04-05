@@ -69,7 +69,9 @@ writematrix(sdb, "test_signal_spectrogram.txt");
 
 addpath(genpath("../../FDNToolbox"));
 [ir, fs] = audioread("ir_1.wav");
-edc = EDC(ir);
+% edc = EDC(ir);
+edc = (cumsum(flipud(abs(ir)).^2,1));
+edc = flipud(edc);
 writematrix(edc, "test_signal_edc.txt");
 
 figure(4);

@@ -214,6 +214,8 @@ void ToDb(std::span<float> data, float scale)
     ippsMulC_32f_I(scale, data.data(), data.size());
 #elifdef AUDIO_UTILS_USE_VDSP
     const unsigned int f = (scale == 10.f) ? 0 : 1;
+    float epsilon = 1e-10f;
+    vDSP_vsadd(data.data(), 1, &epsilon, data.data(), 1, data.size());
     float vref = 1.0f;
     vDSP_vdbcon(data.data(), 1, &vref, data.data(), 1, data.size(), f);
 #else
