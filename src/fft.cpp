@@ -6,9 +6,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <complex>
 #include <format>
+#include <ranges>
 #include <span>
+#include <stdexcept>
 
 namespace
 {
