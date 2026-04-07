@@ -186,7 +186,7 @@ void PowerSpectrum(std::span<const std::complex<float>> spectrum, std::span<floa
 #ifndef AUDIO_UTILS_USE_IPP
     for (size_t i = 0; i < spectrum.size(); ++i)
     {
-        result[i] = std::pow(std::norm(spectrum[i]), 2.f);
+        result[i] = std::pow(std::abs(spectrum[i]), 2.f);
     }
 #else
     IppStatus status = ippsPowerSpectr_32fc(reinterpret_cast<const Ipp32fc*>(spectrum.data()), result.data(),

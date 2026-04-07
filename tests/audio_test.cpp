@@ -223,7 +223,7 @@ TEST_CASE("Spectrogram")
 
 TEST_CASE("SpectralFlatness")
 {
-    constexpr uint32_t kSize = 8192;
+    constexpr uint32_t kSize = 1 << 15;
     std::vector<float> noise(kSize, 0.f);
 
     // Fill the noise vector with random values

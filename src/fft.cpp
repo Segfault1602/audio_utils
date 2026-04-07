@@ -208,7 +208,7 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
 
     if (options.to_db)
     {
-        std::ranges::transform(mag_spectrum, mag_spectrum.begin(), [](float val) { return 10.0f * std::log10f(val); });
+        audio_utils::array_math::ToDb(mag_spectrum, options.output_type == FFTOutputType::Magnitude ? 20.f : 10.f);
     }
 }
 
