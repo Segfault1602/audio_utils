@@ -8,9 +8,7 @@
 #include <cassert>
 #include <complex>
 #include <format>
-#include <iostream>
 #include <span>
-#include <vector>
 
 namespace
 {
@@ -25,7 +23,7 @@ float* AllocateBuffer(size_t size)
     }
 
 #pragma clang unsafe_buffer_usage begin
-    float* buf = (float*)aligned_alloc(kAlignment, alignedSizeBytes);
+    float* buf = reinterpret_cast<float*>(aligned_alloc(kAlignment, alignedSizeBytes));
     memset(buf, 0, alignedSizeBytes);
 #pragma clang unsafe_buffer_usage end
     return buf;
@@ -48,19 +46,19 @@ std::string_view FFT::BackendName()
 
 struct FFT::FFTState
 {
-    vDSP_DFT_Setup mForwardSetup;
-    vDSP_DFT_Setup mInverseSetup;
+    vDSP_DFT_Setup mForwardSetup{nullptr};
+    vDSP_DFT_Setup mInverseSetup{nullptr};
 
-    size_t numRealSamples;
-    size_t numComplexSamples;
-    std::array<float*, 2> deinterleaved;
+    size_t numRealSamples{0};
+    size_t numComplexSamples{0};
+    std::array<float*, 2> deinterleaved{nullptr, nullptr};
     std::span<float> real_span_;
     std::span<float> imag_span_;
 };
 
-uint32_t FFT::NextSupportedFFTSize(uint32_t target_size)
+uint32_t FFT::NextSupportedFFTSize(uint32_t min_size)
 {
-    if (target_size < 32)
+    if (min_size < 32)
     {
         return 32;
     }
@@ -77,7 +75,7 @@ uint32_t FFT::NextSupportedFFTSize(uint32_t target_size)
         for (auto n = 4; n < 24; ++n)
         {
             uint32_t possible_size = factor * (1 << n);
-            if (possible_size >= target_size)
+            if (possible_size >= min_size)
             {
                 best_match = std::min(best_match, possible_size);
             }
@@ -92,7 +90,7 @@ FFT::FFT(uint32_t fft_size)
     state_ = std::make_unique<FFTState>();
 
     state_->numRealSamples = fft_size;
-    state_->numComplexSamples = (state_->numRealSamples / 2 + 1);
+    state_->numComplexSamples = (state_->numRealSamples / 2) + 1;
 
     state_->mForwardSetup = vDSP_DFT_zrop_CreateSetup(nullptr, state_->numRealSamples, vDSP_DFT_FORWARD);
     if (!state_->mForwardSetup)
@@ -148,8 +146,8 @@ FFT::~FFT()
 }
 
 FFT::FFT(FFT&& other) noexcept
+    : state_(std::move(other.state_))
 {
-    state_ = std::move(other.state_);
 }
 
 FFT& FFT::operator=(FFT&& other) noexcept
@@ -181,20 +179,20 @@ void FFT::Forward(std::span<const float> signal, std::span<complex_t> spectrum)
     std::ranges::fill(state_->imag_span_, 0.0f);
 
 #pragma clang unsafe_buffer_usage begin
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
 #pragma clang unsafe_buffer_usage end
 
     vDSP_DFT_Execute(state_->mForwardSetup, splitComplex.realp, splitComplex.imagp, splitComplex.realp,
                      splitComplex.imagp);
 
-    vDSP_ztoc(&splitComplex, 1, reinterpret_cast<DSPComplex*>(spectrum.data()), 2, state_->numRealSamples / 2);
+    vDSP_ztoc(&splitComplex, 1, std::bit_cast<DSPComplex*>(spectrum.data()), 2, state_->numRealSamples / 2);
 
     spectrum[state_->numComplexSamples - 1].real(spectrum[0].imag());
     spectrum[0].imag(0.0f);
 
     float scalar = 0.5f;
-    vDSP_vsmul(reinterpret_cast<const float*>(spectrum.data()), 1, &scalar, reinterpret_cast<float*>(spectrum.data()),
-               1, 2 * state_->numComplexSamples);
+    vDSP_vsmul(std::bit_cast<const float*>(spectrum.data()), 1, &scalar, std::bit_cast<float*>(spectrum.data()), 1,
+               2 * state_->numComplexSamples);
 }
 
 void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectrum, const ForwardFFTOptions& options)
@@ -217,7 +215,7 @@ void FFT::ForwardMag(std::span<const float> signal, std::span<float> mag_spectru
     std::ranges::fill(state_->imag_span_, 0.0f);
 
 #pragma clang unsafe_buffer_usage begin
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
 #pragma clang unsafe_buffer_usage end
 
     vDSP_DFT_Execute(state_->mForwardSetup, splitComplex.realp, splitComplex.imagp, splitComplex.realp,
@@ -259,7 +257,7 @@ void FFT::Inverse(std::span<const complex_t> spectrum, std::span<float> signal)
     splitComplex.realp = state_->deinterleaved[0];
     splitComplex.imagp = state_->deinterleaved[1];
 
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(spectrum.data()), 2, &splitComplex, 1, state_->numComplexSamples);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(spectrum.data()), 2, &splitComplex, 1, state_->numComplexSamples);
 
 #pragma clang unsafe_buffer_usage begin
     splitComplex.imagp[0] = splitComplex.realp[state_->numComplexSamples - 1];
@@ -270,7 +268,7 @@ void FFT::Inverse(std::span<const complex_t> spectrum, std::span<float> signal)
                      splitComplex.imagp);
 
 #pragma clang unsafe_buffer_usage begin
-    vDSP_ztoc(&splitComplex, 1, reinterpret_cast<DSPComplex*>(signal.data()), 2, state_->numRealSamples / 2);
+    vDSP_ztoc(&splitComplex, 1, std::bit_cast<DSPComplex*>(signal.data()), 2, state_->numRealSamples / 2);
 #pragma clang unsafe_buffer_usage end
 
     float scalar = 1.0f / state_->numRealSamples;
@@ -297,7 +295,7 @@ void FFT::RealCepstrum(std::span<const float> signal, std::span<float> cepstrum)
     std::ranges::fill(state_->imag_span_, 0.0f);
 
 #pragma clang unsafe_buffer_usage begin
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(signal.data()), 2, &splitComplex, 1, signal.size() / 2);
 #pragma clang unsafe_buffer_usage end
 
     vDSP_DFT_Execute(state_->mForwardSetup, splitComplex.realp, splitComplex.imagp, splitComplex.realp,
@@ -317,7 +315,7 @@ void FFT::RealCepstrum(std::span<const float> signal, std::span<float> cepstrum)
                      splitComplex.imagp);
 
 #pragma clang unsafe_buffer_usage begin
-    vDSP_ztoc(&splitComplex, 1, reinterpret_cast<DSPComplex*>(cepstrum.data()), 2, state_->numRealSamples / 2);
+    vDSP_ztoc(&splitComplex, 1, std::bit_cast<DSPComplex*>(cepstrum.data()), 2, state_->numRealSamples / 2);
 #pragma clang unsafe_buffer_usage end
 
     float scalar = 1.0f / state_->numRealSamples;
@@ -364,8 +362,8 @@ void FFT::Convolve(std::span<const float> signal, std::span<const float> filter,
     filterSplit.realp = AllocateBuffer(state_->numComplexSamples);
     filterSplit.imagp = AllocateBuffer(state_->numComplexSamples);
 
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(aligned_signal), 2, &signalSplit, 1, state_->numRealSamples / 2);
-    vDSP_ctoz(reinterpret_cast<const DSPComplex*>(aligned_filter), 2, &filterSplit, 1, state_->numRealSamples / 2);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(aligned_signal), 2, &signalSplit, 1, state_->numRealSamples / 2);
+    vDSP_ctoz(std::bit_cast<const DSPComplex*>(aligned_filter), 2, &filterSplit, 1, state_->numRealSamples / 2);
 
     vDSP_DFT_Execute(state_->mForwardSetup, signalSplit.realp, signalSplit.imagp, signalSplit.realp, signalSplit.imagp);
     vDSP_DFT_Execute(state_->mForwardSetup, filterSplit.realp, filterSplit.imagp, filterSplit.realp, filterSplit.imagp);
@@ -382,7 +380,7 @@ void FFT::Convolve(std::span<const float> signal, std::span<const float> filter,
 
     vDSP_DFT_Execute(state_->mInverseSetup, signalSplit.realp, signalSplit.imagp, signalSplit.realp, signalSplit.imagp);
 
-    vDSP_ztoc(&signalSplit, 1, reinterpret_cast<DSPComplex*>(aligned_convolution), 2, state_->numRealSamples / 2);
+    vDSP_ztoc(&signalSplit, 1, std::bit_cast<DSPComplex*>(aligned_convolution), 2, state_->numRealSamples / 2);
 
     float scalar = 1.0f / (4 * state_->numRealSamples);
     vDSP_vsmul(aligned_convolution, 1, &scalar, aligned_convolution, 1, state_->numRealSamples);

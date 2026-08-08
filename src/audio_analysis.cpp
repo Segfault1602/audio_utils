@@ -4,8 +4,6 @@
 #include "audio_utils/fft.h"
 #include "audio_utils/fft_utils.h"
 
-#include "octave_band_filters_fir.h"
-
 #include <Eigen/Core>
 
 #ifdef AUDIO_UTILS_USE_IPP
@@ -13,9 +11,6 @@
 #endif
 
 #include <format>
-#include <iterator>
-#include <numeric>
-#include <ranges>
 #include <vector>
 
 namespace
@@ -84,10 +79,10 @@ Eigen::MatrixXf GetMelFilter(size_t n_mels, size_t nfft, size_t sample_rate)
     Eigen::VectorXf band_edges = Eigen::VectorXf::LinSpaced(n_mels + 2, range[0], range[1]);
     band_edges = band_edges.unaryExpr([](float mel) { return MelToHz(mel); });
 
-    Eigen::MatrixXf filter_bank = Eigen::MatrixXf::Zero(nfft / 2 + 1, n_mels);
+    Eigen::MatrixXf filter_bank = Eigen::MatrixXf::Zero((nfft / 2) + 1, n_mels);
 
     Eigen::VectorXf linear_frequencies =
-        Eigen::VectorXf::LinSpaced(nfft / 2 + 1, 0.0f, nfft / 2) / static_cast<float>(nfft) * sample_rate;
+        Eigen::VectorXf::LinSpaced((nfft / 2) + 1, 0.0f, nfft / 2) / static_cast<float>(nfft) * sample_rate;
 
     Eigen::VectorXf p = Eigen::VectorXf::Zero(band_edges.size());
 
@@ -234,7 +229,7 @@ STFTResult STFT(std::span<const float> signal, const STFTOptions& options, bool 
 
     const uint32_t hop = options.window_size - options.overlap;
     const uint32_t num_frames = (signal.size() - options.overlap) / hop;
-    const uint32_t num_bins = options.fft_size / 2 + 1;
+    const uint32_t num_bins = (options.fft_size / 2) + 1;
 
     std::vector<float> result;
     result.resize(num_frames * num_bins, -9999.999f);

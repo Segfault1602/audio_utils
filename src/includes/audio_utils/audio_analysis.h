@@ -163,22 +163,22 @@ float SpectralFlatness(std::span<const float> power_spectrum);
 /**
  * @brief Computes the Short-Time Fourier Transform (STFT) of a signal.
  * @param signal The input signal as a span of floats.
- * @param info Spectrogram information including FFT size, window size, overlap, and sample rate.
+ * @param options Spectrogram information including FFT size, window size, overlap, and sample rate.
  * @param flip If true, the frequency bins in the output spectrogram are reversed such that the Nyquist frequency is
  * first. Useful for certain visualization purposes, ex. ImPlot::PlotHeatmap.
  *
  * @return STFTResult The computed spectrogram result.
  */
-STFTResult STFT(std::span<const float> signal, const STFTOptions& info, bool flip = false);
+STFTResult STFT(std::span<const float> signal, const STFTOptions& options, bool flip = false);
 
 /**
  * @brief Computes the Mel spectrogram of a signal.
  * @param signal The input signal as a span of floats.
- * @param info Spectrogram information including FFT size, window size, overlap, and sample rate.
+ * @param options Spectrogram information including FFT size, window size, overlap, and sample rate.
  * @param n_mels The number of Mel frequency bands.
  *
  * @param flip If true, the Mel frequency bins in the output spectrogram are reversed such that the highest Mel
  */
-STFTResult MelSpectrogram(std::span<const float> signal, const STFTOptions& info, size_t n_mels, bool flip = false);
+STFTResult MelSpectrogram(std::span<const float> signal, const STFTOptions& options, size_t n_mels, bool flip = false);
 
 } // namespace audio_utils::analysis

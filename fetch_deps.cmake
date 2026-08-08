@@ -18,6 +18,7 @@ if(AUDIO_UTILS_USE_RTAUDIO)
         "RTAUDIO_BUILD_TESTING OFF"
         "RTAUDIO_TARGETNAME_UNINSTALL RTAUDIO_UNINSTALL")
     add_library(RtAudio::rtaudio ALIAS rtaudio)
+    target_compile_options(rtaudio PRIVATE -Wno-elaborated-enum-base)
 endif()
 
 if(AUDIO_UTILS_USE_SNDFILE)

@@ -1,7 +1,6 @@
 #include "audio_utils/audio_analysis.h"
 
 #include "audio_utils/array_math.h"
-#include "audio_utils/fft.h"
 #include "audio_utils/fft_utils.h"
 #include "octave_band_filters_fir.h"
 
@@ -9,7 +8,6 @@
 #include <Eigen/Dense>
 
 #include <cassert>
-#include <iostream>
 #include <numbers>
 #include <numeric>
 #include <ranges>
@@ -208,15 +206,16 @@ EstimateT60Results EstimateT60(std::span<const float> decay_curve, std::span<con
         const float y2 = decay_span.back();
 
         c1 = (y2 - y1) / (x2 - x1);
-        c0 = y1 - c1 * x1;
+        c0 = y1 - (c1 * x1);
     }
 
-    EstimateT60Results results;
-    results.t60 = -60.0f / c1;
-    results.decay_start_time = time_span.front();
-    results.decay_end_time = time_span.back();
-    results.intercept = c0;
-    results.slope = c1;
+    EstimateT60Results results{
+        .t60 = -60.0f / c1,
+        .decay_start_time = time_span.front(),
+        .decay_end_time = time_span.back(),
+        .intercept = c0,
+        .slope = c1,
+    };
 
     return results;
 }
@@ -283,10 +282,11 @@ EchoDensityResults EchoDensity(std::span<const float> signal, const EchoDensityO
             float prev_time =
                 (i == 0) ? 0.0f
                          : static_cast<float>(results.sparse_indices[i - 1]) / static_cast<float>(options.sample_rate);
+
             // Linear interpolation to estimate more accurate mixing time
             float previous_density = (i == 0) ? 0.0f : results.echo_densities[i - 1];
             float frac = (kDensityThreshold - previous_density) / (results.echo_densities[i] - previous_density);
-            results.mixing_time = prev_time + frac * (time_gt_thresh - prev_time);
+            results.mixing_time = prev_time + (frac * (time_gt_thresh - prev_time));
             break;
         }
     }

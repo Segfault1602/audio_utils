@@ -41,7 +41,9 @@ TEST_CASE("FFT")
     bench.title("FFT Perf");
     bench.timeUnit(1ns, "ns");
 
-    constexpr std::array kNFFTSizes = {256u, 512u, 1024u, 2048u, 4096u, 8192u, 16384u, 32768u, 44100u, 48000u};
+    constexpr std::array kNFFTSizes = {
+        256u, 512u, 1024u, 2048u, 4096u, 8192u, 16384u, 32768u, 44100u, 48000u, 96000u,
+    };
     std::random_device rd;
     std::mt19937 gen(rd());
     std::normal_distribution<float> dist(0.0f, 1.0f);
@@ -51,17 +53,17 @@ TEST_CASE("FFT")
         std::vector<float> test_signal = GenerateRandomSignal(nfft);
 
         const uint32_t supported_fft_size = audio_utils::FFT::NextSupportedFFTSize(nfft);
-        if (supported_fft_size != nfft)
-            continue;
+        // if (supported_fft_size != nfft)
+        //     continue;
 
-        audio_utils::FFT fft(nfft);
+        audio_utils::FFT fft(supported_fft_size);
 
-        bench.minEpochIterations(40000000 / nfft);
-        bench.batch(nfft);
+        bench.minEpochIterations(40000000 / supported_fft_size);
+        bench.batch(supported_fft_size);
         bench.unit("samples");
 
         std::vector<std::complex<float>> test_spectrum(fft.GetSpectrumSize());
-        std::string title = std::format("FFT (NFFT={})", nfft);
+        std::string title = std::format("FFT (NFFT={})", supported_fft_size);
         bench.run(title, [&] {
             fft.Forward(test_signal, test_spectrum);
             nanobench::doNotOptimizeAway(test_spectrum);
@@ -75,7 +77,7 @@ TEST_CASE("ForwardMag")
     bench.title("FFT Perf - ForwardMag");
     bench.timeUnit(1ns, "ns");
 
-    constexpr std::array kNFFTSizes = {256u, 512u, 1024u, 2048u, 4096u, 8192u, 16384u, 32768u, 44100u, 48000u};
+    constexpr std::array kNFFTSizes = {256u, 512u, 1024u, 2048u, 4096u, 8192u, 16384u, 32768u, 44100u, 48000u, 96000u};
     std::random_device rd;
     std::mt19937 gen(rd());
     std::normal_distribution<float> dist(0.0f, 1.0f);
@@ -83,18 +85,18 @@ TEST_CASE("ForwardMag")
     for (auto nfft : kNFFTSizes)
     {
         const uint32_t supported_fft_size = audio_utils::FFT::NextSupportedFFTSize(nfft);
-        if (supported_fft_size != nfft)
-            continue;
+        // if (supported_fft_size != nfft)
+        //     continue;
 
-        audio_utils::FFT fft(nfft);
-        std::vector<float> test_signal = GenerateRandomSignal(nfft);
+        audio_utils::FFT fft(supported_fft_size);
+        std::vector<float> test_signal = GenerateRandomSignal(supported_fft_size);
 
-        bench.minEpochIterations(5000000 / nfft);
-        bench.batch(nfft);
+        bench.minEpochIterations(5000000 / supported_fft_size);
+        bench.batch(supported_fft_size);
         bench.unit("samples");
 
         std::vector<float> test_spectrum(fft.GetSpectrumSize());
-        std::string title = std::format("FFT (NFFT={})", nfft);
+        std::string title = std::format("FFT (NFFT={})", supported_fft_size);
         bench.run(title, [&] {
             fft.ForwardMag(test_signal, test_spectrum, {audio_utils::FFTOutputType::Magnitude, false});
             nanobench::doNotOptimizeAway(test_spectrum);

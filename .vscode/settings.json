@@ -1,0 +1,8 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "clangd.arguments": [
+        "--compile-commands-dir=build/ninja",
+        "--background-index",
+        "--clang-tidy"
+    ]
+}

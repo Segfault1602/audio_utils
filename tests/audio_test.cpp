@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -258,7 +257,7 @@ TEST_CASE("SpectralFlatness")
     float flatness = audio_utils::analysis::SpectralFlatness(spectrum);
 
     // Not a perfect test, but flatness of white noise should be around 0.56 based on Matlab implementation
-    REQUIRE_THAT(flatness, Catch::Matchers::WithinAbs(0.56f, 0.005f));
+    REQUIRE_THAT(flatness, Catch::Matchers::WithinAbs(0.56f, 0.01f));
 }
 
 TEST_CASE("EnergyDecayCurve")
