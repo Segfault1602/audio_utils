@@ -11,6 +11,10 @@ option(AUDIO_UTILS_USE_RTAUDIO "Use RtAudio library for audio playback and recor
 
 option(AUDIO_UTILS_ENABLE_HARDENING "Enable hardening" ON)
 option(AUDIO_UTILS_USE_SANITIZER "Use AddressSanitizer" OFF)
+set(AUDIO_UTILS_FFT_BACKEND
+    "AUTO"
+    CACHE STRING "FFT backend: AUTO, IPP, PFFFT, or VDSP")
+set_property(CACHE AUDIO_UTILS_FFT_BACKEND PROPERTY STRINGS AUTO IPP PFFFT VDSP)
 
 include(./fetch_deps.cmake)
 include(cmake/project-warnings.cmake)

@@ -76,6 +76,11 @@ uint32_t FFT::NextSupportedFFTSize(uint32_t target_size)
     }
 }
 
+std::string_view FFT::BackendName()
+{
+    return "PFFFT";
+}
+
 FFT::FFT(uint32_t fft_size)
 {
     state_ = std::make_unique<FFTState>();

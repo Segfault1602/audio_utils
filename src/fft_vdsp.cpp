@@ -40,6 +40,12 @@ void FreeBuffer(float* buffer)
 
 namespace audio_utils
 {
+
+std::string_view FFT::BackendName()
+{
+    return "vDSP";
+}
+
 struct FFT::FFTState
 {
     vDSP_DFT_Setup mForwardSetup;

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string_view>
 
 using complex_t = std::complex<float>;
 
@@ -55,6 +56,8 @@ class FFT
     uint32_t GetSpectrumSize() const;
 
     static uint32_t NextSupportedFFTSize(uint32_t min_size);
+
+    static std::string_view BackendName();
 
   private:
     struct FFTState;
