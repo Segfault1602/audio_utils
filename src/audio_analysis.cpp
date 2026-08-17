@@ -209,24 +209,16 @@ std::vector<float> Convolve(std::span<const float> signal, std::span<const float
 
 float SpectralFlatness(std::span<const float> power_spectrum)
 {
-    float geo_mean = 1.0f;
-    float arith_mean = 0.0f;
+    if (power_spectrum.empty())
+        return 0.0f;
 
-#if defined(AUDIO_UTILS_USE_IPP)
-    std::vector<float> log_spectrum(power_spectrum.size(), 0.0f);
-    array_math::Ln(power_spectrum, log_spectrum);
-    geo_mean = std::exp(array_math::Mean(log_spectrum));
-    arith_mean = array_math::Mean(power_spectrum);
-#else
-    for (const auto& power : power_spectrum)
-    {
-        geo_mean += std::log(power + std::numeric_limits<float>::epsilon());
-        arith_mean += power;
-    }
+    std::vector<float> log_spectrum(power_spectrum.begin(), power_spectrum.end());
+    for (float& power : log_spectrum)
+        power += std::numeric_limits<float>::epsilon();
+    array_math::Ln(log_spectrum, log_spectrum);
 
-    geo_mean = std::exp(geo_mean / static_cast<float>(power_spectrum.size()));
-    arith_mean /= static_cast<float>(power_spectrum.size());
-#endif
+    const float geo_mean = std::exp(array_math::Mean(log_spectrum));
+    const float arith_mean = array_math::Mean(power_spectrum);
 
     if (arith_mean == 0.0f)
     {

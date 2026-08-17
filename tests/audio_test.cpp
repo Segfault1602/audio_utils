@@ -3,8 +3,10 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -223,6 +225,20 @@ TEST_CASE("Spectrogram")
 
 TEST_CASE("SpectralFlatness")
 {
+    const std::vector<float> reference_spectrum = {0.0f, 1.0f, 4.0f, 16.0f};
+    double log_sum = 0.0;
+    double arithmetic_sum = 0.0;
+    for (float power : reference_spectrum)
+    {
+        log_sum += std::log(static_cast<double>(power) + std::numeric_limits<float>::epsilon());
+        arithmetic_sum += power;
+    }
+    const float expected_flatness =
+        static_cast<float>(std::exp(log_sum / reference_spectrum.size()) /
+                           (arithmetic_sum / reference_spectrum.size()));
+    REQUIRE_THAT(audio_utils::analysis::SpectralFlatness(reference_spectrum),
+                 Catch::Matchers::WithinAbs(expected_flatness, 1e-6f));
+
     constexpr uint32_t kSize = 1 << 15;
     std::vector<float> noise(kSize, 0.f);
 

@@ -34,6 +34,7 @@ target_link_libraries(
 target_compile_features(audio_test PRIVATE cxx_std_23)
 
 add_test(NAME audio_test COMMAND audio_test)
+set_tests_properties(audio_test PROPERTIES WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 add_executable(audio_perf audio_perf.cpp)
 target_link_libraries(

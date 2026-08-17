@@ -71,7 +71,9 @@ void Square(std::span<const float> data, std::span<float> result)
 void Ln(std::span<const float> data, std::span<float> result)
 {
 #ifdef AUDIO_UTILS_USE_IPP
-    IppStatus status = ippsLn_32f(data.data(), result.data(), static_cast<int>(data.size()));
+    const IppStatus status =
+        data.data() == result.data() ? ippsLn_32f_I(result.data(), static_cast<int>(result.size()))
+                                    : ippsLn_32f(data.data(), result.data(), static_cast<int>(data.size()));
     if (status != ippStsNoErr)
     {
         throw std::runtime_error("ippsLn_32f failed with error code " + std::to_string(status));
