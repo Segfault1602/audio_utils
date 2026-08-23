@@ -20,6 +20,11 @@ include(./fetch_deps.cmake)
 include(cmake/project-warnings.cmake)
 include(cmake/project-options.cmake)
 
+if(AUDIO_UTILS_USE_RTAUDIO)
+    target_compile_definitions(
+        rtaudio PRIVATE $<TARGET_PROPERTY:audioutils_options,INTERFACE_COMPILE_DEFINITIONS>)
+endif()
+
 # if(PROJECT_IS_TOP_LEVEL)
 #     set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 # endif()

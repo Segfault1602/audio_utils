@@ -44,8 +44,8 @@ class rtaudio_manager_impl : public audio_manager
                         RtAudioStreamStatus status);
 
     std::unique_ptr<RtAudio> rtaudio_;
-    RtAudio::StreamParameters output_stream_parameters_;
-    RtAudio::StreamParameters input_stream_parameters_;
+    RtAudio::StreamParameters output_stream_parameters_{};
+    RtAudio::StreamParameters input_stream_parameters_{};
 
     audio_stream_option current_stream_option_ = audio_stream_option::kNone;
 
@@ -57,7 +57,9 @@ class rtaudio_manager_impl : public audio_manager
     uint32_t sample_rate_ = 48000;
     RtAudio::Api current_audio_api_ = RtAudio::Api::UNSPECIFIED;
 
-    bool play_test_tone_ = false;
+    std::atomic<bool> play_test_tone_{false};
+    std::atomic<bool> callback_enabled_{false};
+    std::atomic<uint32_t> callbacks_in_flight_{0};
 
     TestToneGenerator test_tone_;
 
